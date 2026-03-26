@@ -646,18 +646,6 @@ def companies_kb(page, total_pages):
     return markup
 
 # ========== КОМАНДЫ ==========
-@bot.message_handler(commands=['admin'])
-def admin_cmd(message):
-    if message.from_user.id != ADMIN_ID:
-        bot.reply_to(message, "❌ Недостаточно прав!")
-        return
-    
-    text = "🔧 *Админ-панель*\n\nВыберите действие:"
-    if IMAGES.get('main'):
-        bot.send_photo(message.chat.id, IMAGES['main'], caption=text, parse_mode="Markdown", reply_markup=admin_panel_kb())
-    else:
-        bot.send_message(message.chat.id, text, parse_mode="Markdown", reply_markup=admin_panel_kb())
-        
 @bot.message_handler(commands=['start', 'trade'])
 def start_cmd(message):
     uid = message.from_user.id
@@ -937,6 +925,18 @@ def promo_list_cmd(m):
     else:
         bot.send_message(m.chat.id, text, reply_markup=back_kb("back_to_main"))
 
+@bot.message_handler(commands=['admin'])
+def admin_cmd(message):
+    if message.from_user.id != ADMIN_ID:
+        bot.reply_to(message, "❌ Недостаточно прав!")
+        return
+    
+    text = "🔧 *Админ-панель*\n\nВыберите действие:"
+    if IMAGES.get('main'):
+        bot.send_photo(message.chat.id, IMAGES['main'], caption=text, parse_mode="Markdown", reply_markup=admin_panel_kb())
+    else:
+        bot.send_message(message.chat.id, text, parse_mode="Markdown", reply_markup=admin_panel_kb())
+        
 # ========== ОБРАБОТКА КНОПОК ==========
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
