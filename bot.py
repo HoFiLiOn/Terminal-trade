@@ -18,29 +18,109 @@ LEADERBOARD_FILE = "leaderboard.json"
 PROMOCODES_FILE = "promocodes.json"
 COMPANIES_FILE = "companies.json"
 SEASON_FILE = "season.json"
-SETTINGS_FILE = "settings.json"  # Новый файл для настроек
-BANNED_USERS_FILE = "banned_users.json"  # Файл для забаненных пользователей
+SETTINGS_FILE = "settings.json"
+BANNED_USERS_FILE = "banned_users.json"
 
+# Создаем папки
 if not os.path.exists(USERS_DIR):
     os.makedirs(USERS_DIR)
 
-# ========== НАСТРОЙКИ ПО УМОЛЧАНИЮ ==========
+# ========== НАСТРОЙКИ ==========
 DEFAULT_SETTINGS = {
-    'story_text': "📜 *Небольшая предыстория...*\n\nТы обычный человек, который однажды утром открыл Telegram и наткнулся на странного бота.\nВ описании было сказано: _«Хочешь стать миллионером? Начни прямо сейчас и покори биржу!»_.\n\nСначала ты подумал, что это очередной развод, но любопытство взяло верх.\nТы запустил бота и... оказался в мире, где каждое твоё решение может принести состояние или оставить с пустым кошельком.\n\nТеперь ты трейдер. И от твоих решений зависит, войдёшь ли ты в историю как легенда или исчезнешь в бездне убытков.\n\nДобро пожаловать в *Terminal Trade*.",
-    'help_text': "📚 *Помощь по игре*\n\n*Команды:*\n/start - начать игру\n/help - эта помощь\n/tbuy КОМПАНИЯ КОЛ-ВО - купить акции\n/tsell КОМПАНИЯ КОЛ-ВО - продать акции\n/tnext - следующий день\n/tstats - твоя статистика\n/tlist - список компаний\n/tleader - таблица лидеров\n/tpromo КОД - активировать промокод\n/promo - список промокодов\n/shop - магазин\n/inventory - инвентарь\n\n*Предметы:*\n🚀 Ускоритель - цены растут быстрее 24ч\n🛡️ Страховка - защита от 1 убытка\n📊 Аналитик - прогноз цен\n🎲 Рандом - случайный бонус\n💎 VIP - +10% к доходу 30 дней\n📈 Трейдер PRO - +15% к доходу 30 дней\n💰 Инвестор - +20% к доходу 30 дней\n🎁 Лаки бокс - случайный приз",
     'start_money': 1000.0,
     'price_change_min': -0.1,
     'price_change_max': 0.1,
-    'booster_multiplier': 1.5,
-    'vip_bonus': 10,
-    'trader_bonus': 15,
-    'investor_bonus': 20,
     'random_bonus_min': 50,
     'random_bonus_max': 500,
     'lucky_box_money_min': 100,
     'lucky_box_money_max': 1000,
-    'shop_items': SHOP_ITEMS  # Сохраняем товары в настройки
+    'vip_bonus': 10,
+    'trader_bonus': 15,
+    'investor_bonus': 20
 }
+
+def load_settings():
+    if os.path.exists(SETTINGS_FILE):
+        with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return DEFAULT_SETTINGS.copy()
+
+def save_settings(settings):
+    with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(settings, f, indent=2, ensure_ascii=False)
+
+def get_setting(key):
+    return load_settings().get(key, DEFAULT_SETTINGS.get(key))
+
+def update_setting(key, value):
+    s = load_settings()
+    s[key] = value
+    save_settings(s)
+
+# ========== БАНЫ ==========
+def load_banned():
+    if os.path.exists(BANNED_USERS_FILE):
+        with open(BANNED_USERS_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {}
+
+def save_banned(banned):
+    with open(BANNED_USERS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(banned, f, indent=2, ensure_ascii=False)
+
+def is_banned(user_id):
+    return str(user_id) in load_banned()
+
+def ban_user(user_id):
+    banned = load_banned()
+    banned[str(user_id)] = str(datetime.now())
+    save_banned(banned)
+
+def unban_user(user_id):
+    banned = load_banned()
+    if str(user_id) in banned:
+        del banned[str(user_id)]
+        save_banned(banned)
+
+# ========== ТЕКСТЫ ==========
+STORY_TEXT = """📜 *Небольшая предыстория...*
+
+Ты обычный человек, который однажды утром открыл Telegram и наткнулся на странного бота.
+В описании было сказано: *«Хочешь стать миллионером? Начни прямо сейчас и покори биржу!»*.
+
+Сначала ты подумал, что это очередной развод, но любопытство взяло верх.
+Ты запустил бота и... оказался в мире, где каждое твоё решение может принести состояние или оставить с пустым кошельком.
+
+Теперь ты трейдер. И от твоих решений зависит, войдёшь ли ты в историю как легенда или исчезнешь в бездне убытков.
+
+Добро пожаловать в *Terminal Trade*."""
+
+HELP_TEXT = """📚 *Помощь по игре*
+
+*Команды:*
+/start - начать игру
+/help - эта помощь
+/tbuy КОМПАНИЯ КОЛ-ВО - купить акции
+/tsell КОМПАНИЯ КОЛ-ВО - продать акции
+/tnext - следующий день
+/tstats - твоя статистика
+/tlist - список компаний
+/tleader - таблица лидеров
+/tpromo КОД - активировать промокод
+/promo - список промокодов
+/shop - магазин
+/inventory - инвентарь
+/admin - админ-панель (только для админа)
+
+*Предметы:*
+🚀 Ускоритель - цены растут быстрее 24ч
+🛡️ Страховка - защита от 1 убытка
+📊 Аналитик - прогноз цен
+🎲 Рандом - случайный бонус
+💎 VIP - +10% к доходу 30 дней
+📈 Трейдер PRO - +15% к доходу 30 дней
+💰 Инвестор - +20% к доходу 30 дней
+🎁 Лаки бокс - случайный приз"""
 
 # ========== КАРТИНКИ ==========
 IMAGES = {
@@ -52,81 +132,60 @@ IMAGES = {
     'leaderboard': 'https://s10.iimage.su/s/05/gYoBW3cxowvFLbKdb8GJCDKWoEAcQD5DJa0zHCQt6.jpg'
 }
 
-# ========== ФУНКЦИИ ДЛЯ РАБОТЫ С JSON ==========
-def load_json(file):
-    if os.path.exists(file):
-        with open(file, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {}
-
-def save_json(file, data):
-    with open(file, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-
-# ========== НАСТРОЙКИ ==========
-def load_settings():
-    settings = load_json(SETTINGS_FILE)
-    if not settings:
-        settings = DEFAULT_SETTINGS.copy()
-        save_json(SETTINGS_FILE, settings)
-    return settings
-
-def save_settings(settings):
-    save_json(SETTINGS_FILE, settings)
-
-def get_setting(key):
-    return load_settings().get(key, DEFAULT_SETTINGS.get(key))
-
-def update_setting(key, value):
-    settings = load_settings()
-    settings[key] = value
-    save_settings(settings)
-
-# ========== БАН ==========
-def load_banned_users():
-    return load_json(BANNED_USERS_FILE)
-
-def save_banned_users(banned):
-    save_json(BANNED_USERS_FILE, banned)
-
-def is_banned(user_id):
-    banned = load_banned_users()
-    return user_id in banned
-
-def ban_user(user_id):
-    banned = load_banned_users()
-    banned[user_id] = str(datetime.now())
-    save_banned_users(banned)
-
-def unban_user(user_id):
-    banned = load_banned_users()
-    if user_id in banned:
-        del banned[user_id]
-        save_banned_users(banned)
-
 # ========== КОМПАНИИ ==========
+DEFAULT_COMPANIES = {
+    'AAPL': {'name': 'Apple Inc.', 'price': 175.50, 'prev_price': 175.50},
+    'MSFT': {'name': 'Microsoft Corp.', 'price': 330.25, 'prev_price': 330.25},
+    'GOOG': {'name': 'Alphabet (Google)', 'price': 2800.75, 'prev_price': 2800.75},
+    'AMZN': {'name': 'Amazon.com Inc.', 'price': 3450.00, 'prev_price': 3450.00},
+    'META': {'name': 'Meta Platforms', 'price': 310.80, 'prev_price': 310.80},
+    'NFLX': {'name': 'Netflix Inc.', 'price': 450.30, 'prev_price': 450.30},
+    'DIS': {'name': 'Walt Disney Co.', 'price': 110.20, 'prev_price': 110.20},
+    'PYPL': {'name': 'PayPal Holdings', 'price': 85.40, 'prev_price': 85.40},
+    'ADBE': {'name': 'Adobe Inc.', 'price': 520.10, 'prev_price': 520.10},
+    'INTC': {'name': 'Intel Corp.', 'price': 32.80, 'prev_price': 32.80},
+    'AMD': {'name': 'AMD Inc.', 'price': 140.60, 'prev_price': 140.60},
+    'NVDA': {'name': 'NVIDIA Corp.', 'price': 890.60, 'prev_price': 890.60},
+    'CRM': {'name': 'Salesforce Inc.', 'price': 220.30, 'prev_price': 220.30},
+    'ORCL': {'name': 'Oracle Corp.', 'price': 115.40, 'prev_price': 115.40},
+    'IBM': {'name': 'IBM Corp.', 'price': 145.20, 'prev_price': 145.20},
+    'JPM': {'name': 'JPMorgan Chase', 'price': 150.30, 'prev_price': 150.30},
+    'BAC': {'name': 'Bank of America', 'price': 35.20, 'prev_price': 35.20},
+    'WFC': {'name': 'Wells Fargo', 'price': 48.50, 'prev_price': 48.50},
+    'C': {'name': 'Citigroup Inc.', 'price': 52.30, 'prev_price': 52.30},
+    'GS': {'name': 'Goldman Sachs', 'price': 380.40, 'prev_price': 380.40},
+    'V': {'name': 'Visa Inc.', 'price': 240.20, 'prev_price': 240.20},
+    'MA': {'name': 'Mastercard Inc.', 'price': 390.10, 'prev_price': 390.10},
+    'JNJ': {'name': 'Johnson & Johnson', 'price': 160.40, 'prev_price': 160.40},
+    'PFE': {'name': 'Pfizer Inc.', 'price': 28.30, 'prev_price': 28.30},
+    'MRK': {'name': 'Merck & Co.', 'price': 115.20, 'prev_price': 115.20},
+    'ABBV': {'name': 'AbbVie Inc.', 'price': 155.30, 'prev_price': 155.30},
+    'WMT': {'name': 'Walmart Inc.', 'price': 145.20, 'prev_price': 145.20},
+    'COST': {'name': 'Costco Wholesale', 'price': 520.30, 'prev_price': 520.30},
+    'HD': {'name': 'Home Depot Inc.', 'price': 330.20, 'prev_price': 330.20},
+    'MCD': {'name': 'McDonalds Corp.', 'price': 280.40, 'prev_price': 280.40},
+    'SBUX': {'name': 'Starbucks Corp.', 'price': 92.30, 'prev_price': 92.30}
+}
+
 def load_companies():
-    companies = load_json(COMPANIES_FILE)
-    if not companies:
-        companies = DEFAULT_COMPANIES.copy()
-        save_json(COMPANIES_FILE, companies)
-    return companies
+    if os.path.exists(COMPANIES_FILE):
+        with open(COMPANIES_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return DEFAULT_COMPANIES.copy()
 
 def save_companies(companies):
-    save_json(COMPANIES_FILE, companies)
+    with open(COMPANIES_FILE, 'w', encoding='utf-8') as f:
+        json.dump(companies, f, indent=2, ensure_ascii=False)
 
-def update_company_prices():
+def update_prices():
     companies = load_companies()
     settings = load_settings()
     change_min = settings.get('price_change_min', -0.1)
     change_max = settings.get('price_change_max', 0.1)
-    booster_active = False  # Здесь можно проверить глобальный бустер
     
     for ticker, data in companies.items():
         old = data['price']
         change = random.uniform(change_min, change_max)
-        if booster_active:
-            change = change * settings.get('booster_multiplier', 1.5)
         data['prev_price'] = old
         data['price'] = round(old * (1 + change), 2)
     save_companies(companies)
@@ -136,34 +195,19 @@ def get_price_change(old, new):
         return "0.00%"
     return f"{((new-old)/old)*100:+.2f}%"
 
-def get_companies_page(page=1, per_page=10):
-    items = list(load_companies().items())
-    total = len(items)
-    start = (page - 1) * per_page
-    return items[start:start+per_page], total
-
 # ========== ПОЛЬЗОВАТЕЛИ ==========
-def get_user_file(user_id):
-    return os.path.join(USERS_DIR, f"{user_id}.json")
-
 def get_user(user_id):
-    if is_banned(user_id):
-        return None
-    
-    path = get_user_file(user_id)
+    path = os.path.join(USERS_DIR, f"{user_id}.json")
     if os.path.exists(path):
         with open(path, 'r', encoding='utf-8') as f:
             user = json.load(f)
-            if 'inventory' not in user:
-                user['inventory'] = []
-            if 'cubes' not in user:
-                user['cubes'] = 0
-            if 'active_effects' not in user:
-                user['active_effects'] = {}
-            if 'shields' not in user:
-                user['shields'] = 0
-            if 'subscriptions' not in user:
-                user['subscriptions'] = {}
+            user.setdefault('inventory', [])
+            user.setdefault('cubes', 0)
+            user.setdefault('active_effects', {})
+            user.setdefault('shields', 0)
+            user.setdefault('subscriptions', {})
+            user.setdefault('used_promos', [])
+            user.setdefault('portfolio', {})
             return user
     else:
         settings = load_settings()
@@ -185,93 +229,65 @@ def get_user(user_id):
         return user
 
 def save_user(user_id, data):
-    with open(get_user_file(user_id), 'w', encoding='utf-8') as f:
+    with open(os.path.join(USERS_DIR, f"{user_id}.json"), 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
-
-def update_user_last_seen(user_id):
-    user = get_user(user_id)
-    if user:
-        user['last_seen'] = str(datetime.now())
-        save_user(user_id, user)
-
-def get_portfolio(user_id):
-    user = get_user(user_id)
-    if not user:
-        return []
-    companies = load_companies()
-    return [{'ticker': t, 'amount': a, 'price': companies[t]['price'], 'name': companies[t]['name']}
-            for t, a in user.get('portfolio', {}).items() if t in companies]
 
 def calculate_capital(user_id):
     user = get_user(user_id)
-    if not user:
-        return 0
     companies = load_companies()
     total = user['money']
-    for t, a in user.get('portfolio', {}).items():
-        if t in companies:
-            total += a * companies[t]['price']
+    for ticker, amount in user.get('portfolio', {}).items():
+        if ticker in companies:
+            total += amount * companies[ticker]['price']
     return round(total, 2)
 
-def buy_stock(user_id, ticker, amount):
-    if is_banned(user_id):
-        return False, "❌ Вы забанены"
-    
-    companies = load_companies()
-    if ticker not in companies:
-        return False, "❌ Нет такой компании"
-    user = get_user(user_id)
-    if not user:
-        return False, "❌ Пользователь не найден"
-    
-    price = companies[ticker]['price']
-    total = price * amount
-    if user['money'] >= total:
-        user['money'] -= total
-        user['money'] = round(user['money'], 2)
-        user['portfolio'][ticker] = user['portfolio'].get(ticker, 0) + amount
-        save_user(user_id, user)
-        update_leaderboard()
-        return True, f"✅ Куплено {amount} {ticker} за ${total:,.2f}"
-    return False, f"❌ Нужно ${total:,.2f}"
+def update_leaderboard():
+    lb = []
+    for f in os.listdir(USERS_DIR):
+        if f.endswith('.json'):
+            uid = int(f[:-5])
+            if is_banned(uid):
+                continue
+            user = get_user(uid)
+            cap = calculate_capital(uid)
+            lb.append({
+                'user_id': uid,
+                'username': user.get('username', f"User_{uid}"),
+                'capital': cap,
+                'cubes': user.get('cubes', 0)
+            })
+    lb.sort(key=lambda x: x['capital'], reverse=True)
+    with open(LEADERBOARD_FILE, 'w', encoding='utf-8') as f:
+        json.dump(lb, f, indent=2, ensure_ascii=False)
+    return lb
 
-def sell_stock(user_id, ticker, amount):
-    if is_banned(user_id):
-        return False, "❌ Вы забанены"
-    
-    companies = load_companies()
-    user = get_user(user_id)
-    if not user:
-        return False, "❌ Пользователь не найден"
-    
-    if ticker not in user['portfolio'] or user['portfolio'][ticker] < amount:
-        return False, f"❌ У вас только {user['portfolio'].get(ticker,0)} акций"
-    price = companies[ticker]['price']
-    total = price * amount
-    user['money'] += total
-    user['money'] = round(user['money'], 2)
-    user['portfolio'][ticker] -= amount
-    if user['portfolio'][ticker] == 0:
-        del user['portfolio'][ticker]
-    save_user(user_id, user)
-    update_leaderboard()
-    return True, f"✅ Продано {amount} {ticker} за ${total:,.2f}"
+def get_leaderboard(limit=10):
+    if os.path.exists(LEADERBOARD_FILE):
+        with open(LEADERBOARD_FILE, 'r', encoding='utf-8') as f:
+            lb = json.load(f)
+            return lb[:limit]
+    return update_leaderboard()[:limit]
+
+# ========== ТОВАРЫ МАГАЗИНА ==========
+SHOP_ITEMS = {
+    'booster': {'name': 'Ускоритель', 'description': 'Цены будут расти на 50% быстрее 1 день', 'price': 500, 'emoji': '🚀', 'category': 'consumable', 'effect': 'booster'},
+    'shield': {'name': 'Страховка', 'description': 'Защита от 1 убытка', 'price': 300, 'emoji': '🛡️', 'category': 'consumable', 'effect': 'shield'},
+    'analyst': {'name': 'Аналитик', 'description': 'Прогноз цены на следующий день', 'price': 200, 'emoji': '📊', 'category': 'consumable', 'effect': 'analyst'},
+    'random': {'name': 'Рандом', 'description': 'Случайный бонус от $50 до $500', 'price': 100, 'emoji': '🎲', 'category': 'consumable', 'effect': 'random'},
+    'vip_month': {'name': 'VIP на месяц', 'description': '30 дней: +10% к доходу', 'price': 5000, 'emoji': '💎', 'category': 'subscription', 'duration': 30, 'effect': 'vip'},
+    'trader_month': {'name': 'Трейдер PRO', 'description': '30 дней: +15% к доходу', 'price': 8000, 'emoji': '📈', 'category': 'subscription', 'duration': 30, 'effect': 'trader'},
+    'investor_month': {'name': 'Инвестор', 'description': '30 дней: +20% к доходу', 'price': 12000, 'emoji': '💰', 'category': 'subscription', 'duration': 30, 'effect': 'investor'},
+    'lucky_box': {'name': 'Лаки бокс', 'description': 'Случайный предмет или деньги', 'price': 300, 'emoji': '🎁', 'category': 'special', 'effect': 'lucky_box'}
+}
 
 def buy_item(user_id, item_id):
-    if is_banned(user_id):
-        return False, "❌ Вы забанены"
-    
     user = get_user(user_id)
-    if not user:
-        return False, "❌ Пользователь не найден"
-    
     item = SHOP_ITEMS.get(item_id)
     if not item:
         return False, "❌ Товар не найден"
     if user['money'] < item['price']:
         return False, f"❌ Нужно ${item['price']}"
     user['money'] -= item['price']
-    user['money'] = round(user['money'], 2)
     user['inventory'].append({
         'item_id': item_id,
         'name': item['name'],
@@ -284,226 +300,153 @@ def buy_item(user_id, item_id):
     update_leaderboard()
     return True, f"✅ Куплен {item['emoji']} {item['name']}"
 
-def activate_item(user_id, idx):
-    if is_banned(user_id):
-        return False, "❌ Вы забанены", None
-    
+def use_item(user_id, idx):
     user = get_user(user_id)
-    if not user:
-        return False, "❌ Пользователь не найден", None
-    
     if idx < 0 or idx >= len(user['inventory']):
         return False, "❌ Предмет не найден", None
     
     item = user['inventory'].pop(idx)
-    effect_message = ""
-    effect_data = None
     settings = load_settings()
+    msg = ""
+    data = None
     
     if item['effect'] == 'booster':
         user['active_effects']['booster'] = str(datetime.now() + timedelta(days=1))
-        effect_message = "🚀 Ускоритель активирован! Цены будут расти на 50% быстрее в течение 24 часов."
-        effect_data = {'type': 'booster', 'duration': '24 часа'}
-        
+        msg = "🚀 Ускоритель активирован!"
     elif item['effect'] == 'shield':
         user['shields'] = user.get('shields', 0) + 1
-        effect_message = "🛡️ Страховка активирована! Вы защищены от одного убытка."
-        effect_data = {'type': 'shield', 'count': user['shields']}
-        
+        msg = "🛡️ Страховка активирована!"
     elif item['effect'] == 'analyst':
         companies = load_companies()
-        predictions = []
-        for ticker, data in list(companies.items())[:5]:
+        pred = []
+        for t, d in list(companies.items())[:5]:
             trend = random.choice(['🚀 вырастет', '📉 упадет', '➡️ без изменений'])
-            predictions.append(f"{ticker}: {trend}")
-        effect_message = "📊 Аналитик: прогноз на завтра\n" + "\n".join(predictions)
-        effect_data = {'type': 'analyst', 'predictions': predictions}
-        
+            pred.append(f"{t}: {trend}")
+        msg = "📊 Прогноз:\n" + "\n".join(pred)
     elif item['effect'] == 'random':
         bonus = random.randint(settings.get('random_bonus_min', 50), settings.get('random_bonus_max', 500))
         user['money'] += bonus
-        effect_message = f"🎲 Случайный бонус: +${bonus}!"
-        effect_data = {'type': 'random', 'bonus': bonus}
-        
+        msg = f"🎲 +${bonus}!"
     elif item['effect'] in ['vip', 'trader', 'investor']:
-        duration = 30
-        if item['effect'] == 'vip':
-            bonus = settings.get('vip_bonus', 10)
-        elif item['effect'] == 'trader':
-            bonus = settings.get('trader_bonus', 15)
-        else:
-            bonus = settings.get('investor_bonus', 20)
-            
-        end_date = datetime.now() + timedelta(days=duration)
-        user['subscriptions'][item['effect']] = {
-            'end_date': str(end_date),
-            'bonus': bonus
-        }
-        effect_message = f"{item['emoji']} Подписка {item['name']} активирована на {duration} дней! Бонус: +{bonus}% к доходу."
-        effect_data = {'type': 'subscription', 'name': item['name'], 'duration': duration, 'bonus': bonus}
-        
+        bonus_map = {'vip': settings.get('vip_bonus', 10), 'trader': settings.get('trader_bonus', 15), 'investor': settings.get('investor_bonus', 20)}
+        bonus = bonus_map.get(item['effect'], 10)
+        end = datetime.now() + timedelta(days=30)
+        user['subscriptions'][item['effect']] = {'end_date': str(end), 'bonus': bonus}
+        msg = f"{item['emoji']} Подписка активирована! +{bonus}%"
     elif item['effect'] == 'lucky_box':
-        chance = random.random()
-        if chance < 0.3:
+        r = random.random()
+        if r < 0.3:
             bonus = random.randint(settings.get('lucky_box_money_min', 100), settings.get('lucky_box_money_max', 1000))
             user['money'] += bonus
-            effect_message = f"🎁 Вам выпало: ${bonus}!"
-            effect_data = {'type': 'money', 'amount': bonus}
-        elif chance < 0.6:
-            random_items = ['booster', 'shield', 'analyst']
-            random_item = random.choice(random_items)
+            msg = f"🎁 +${bonus}!"
+        elif r < 0.6:
+            rand_item = random.choice(['booster', 'shield', 'analyst'])
+            it = SHOP_ITEMS[rand_item]
             user['inventory'].append({
-                'item_id': random_item,
-                'name': SHOP_ITEMS[random_item]['name'],
-                'emoji': SHOP_ITEMS[random_item]['emoji'],
-                'description': SHOP_ITEMS[random_item]['description'],
-                'category': SHOP_ITEMS[random_item]['category'],
-                'effect': SHOP_ITEMS[random_item]['effect']
+                'item_id': rand_item, 'name': it['name'], 'emoji': it['emoji'],
+                'description': it['description'], 'category': it['category'], 'effect': it['effect']
             })
-            effect_message = f"🎁 Вам выпал предмет: {SHOP_ITEMS[random_item]['emoji']} {SHOP_ITEMS[random_item]['name']}!"
-            effect_data = {'type': 'item', 'item': random_item}
+            msg = f"🎁 Выпал {it['emoji']} {it['name']}!"
         else:
-            effect_message = "🎁 Вам ничего не выпало... Повезет в следующий раз!"
-            effect_data = {'type': 'nothing'}
+            msg = "🎁 Ничего не выпало..."
     
     save_user(user_id, user)
-    return True, effect_message, effect_data
-
-# ========== ЛИДЕРЫ ==========
-def update_leaderboard():
-    lb = []
-    for f in os.listdir(USERS_DIR):
-        if f.endswith('.json'):
-            uid = int(f[:-5])
-            if is_banned(uid):
-                continue
-            user = get_user(uid)
-            if user:
-                cap = calculate_capital(uid)
-                lb.append({
-                    'user_id': uid,
-                    'username': user.get('username', f"User_{uid}"),
-                    'capital': cap,
-                    'cubes': user.get('cubes', 0)
-                })
-    lb.sort(key=lambda x: x['capital'], reverse=True)
-    save_json(LEADERBOARD_FILE, lb)
-    return lb
-
-def get_leaderboard(limit=10):
-    lb = load_json(LEADERBOARD_FILE)
-    if not lb:
-        lb = update_leaderboard()
-    return lb[:limit]
+    return True, msg, None
 
 # ========== ПРОМОКОДЫ ==========
-def load_promocodes():
-    p = load_json(PROMOCODES_FILE)
-    if not p:
-        p = DEFAULT_PROMOCODES.copy()
-        save_json(PROMOCODES_FILE, p)
-    return p
+DEFAULT_PROMOCODES = {"WELCOME100": {"bonus": 100, "max_uses": 10, "used_count": 0}, "START500": {"bonus": 500, "max_uses": 10, "used_count": 0}}
 
-def save_promocodes(p):
-    save_json(PROMOCODES_FILE, p)
+def load_promos():
+    if os.path.exists(PROMOCODES_FILE):
+        with open(PROMOCODES_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return DEFAULT_PROMOCODES.copy()
 
-def get_promocode(code):
-    return load_promocodes().get(code.upper())
+def save_promos(p):
+    with open(PROMOCODES_FILE, 'w', encoding='utf-8') as f:
+        json.dump(p, f, indent=2, ensure_ascii=False)
 
-def add_promocode(code, bonus, max_uses):
-    p = load_promocodes()
-    if code.upper() in p:
+def use_promo(user_id, code):
+    code = code.upper()
+    promos = load_promos()
+    if code not in promos:
+        return False, "❌ Промокод не найден"
+    p = promos[code]
+    if p['used_count'] >= p['max_uses']:
+        return False, "❌ Промокод закончился"
+    user = get_user(user_id)
+    if code in user.get('used_promos', []):
+        return False, "❌ Уже активирован"
+    user['money'] += p['bonus']
+    user['used_promos'] = user.get('used_promos', []) + [code]
+    save_user(user_id, user)
+    p['used_count'] += 1
+    save_promos(promos)
+    update_leaderboard()
+    return True, f"✅ +${p['bonus']}"
+
+def add_promo(code, bonus, max_uses):
+    promos = load_promos()
+    if code.upper() in promos:
         return False
-    p[code.upper()] = {'bonus': bonus, 'max_uses': max_uses, 'used_count': 0}
-    save_promocodes(p)
+    promos[code.upper()] = {'bonus': bonus, 'max_uses': max_uses, 'used_count': 0}
+    save_promos(promos)
     return True
 
-def delete_promocode(code):
-    p = load_promocodes()
-    if code in p:
-        del p[code]
-        save_promocodes(p)
+def del_promo(code):
+    promos = load_promos()
+    if code.upper() in promos:
+        del promos[code.upper()]
+        save_promos(promos)
         return True
     return False
 
-def use_promo(user_id, code):
-    if is_banned(user_id):
-        return False, "❌ Вы забанены"
-    
-    p = load_promocodes()
-    code = code.upper()
-    if code not in p:
-        return False, "❌ Промокод не найден"
-    promo = p[code]
-    if promo['used_count'] >= promo['max_uses']:
-        return False, "❌ Промокод закончился"
-    user = get_user(user_id)
-    if not user:
-        return False, "❌ Пользователь не найден"
-    if code in user.get('used_promos', []):
-        return False, "❌ Уже активирован"
-    user['money'] += promo['bonus']
-    user['used_promos'] = user.get('used_promos', []) + [code]
-    save_user(user_id, user)
-    promo['used_count'] += 1
-    save_promocodes(p)
-    update_leaderboard()
-    return True, f"✅ +${promo['bonus']}"
-
 # ========== СЕЗОН ==========
-def get_current_season():
-    s = load_json(SEASON_FILE)
-    if not s:
-        s = DEFAULT_SEASON.copy()
-        save_json(SEASON_FILE, s)
-    return s
+DEFAULT_SEASON = {'name': 'ВЕСНА', 'start': str(datetime.now()), 'end': str(datetime.now() + timedelta(days=14)), 'active': True}
+
+def get_season():
+    if os.path.exists(SEASON_FILE):
+        with open(SEASON_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return DEFAULT_SEASON.copy()
+
+def save_season(s):
+    with open(SEASON_FILE, 'w', encoding='utf-8') as f:
+        json.dump(s, f, indent=2, ensure_ascii=False)
 
 def create_season(name, days):
-    s = {
+    save_season({
         'name': name,
         'start': str(datetime.now()),
         'end': str(datetime.now() + timedelta(days=days)),
         'active': True
-    }
-    save_json(SEASON_FILE, s)
+    })
 
 def end_season():
-    s = get_current_season()
+    s = get_season()
     if not s['active']:
         return False, "❌ Уже завершён"
     s['active'] = False
-    save_json(SEASON_FILE, s)
+    save_season(s)
     top = get_leaderboard(3)
     for i, e in enumerate(top, 1):
         u = get_user(e['user_id'])
-        if u:
-            u['cubes'] = u.get('cubes', 0) + 1
-            u['inventory'].append({
-                'item_id': 'cube',
-                'name': f'{s["name"]} Кубок {i}',
-                'emoji': '🏆',
-                'description': f'Награда за {i} место',
-                'effect': 'cube'
-            })
-            save_user(e['user_id'], u)
+        u['cubes'] = u.get('cubes', 0) + 1
+        u['inventory'].append({
+            'item_id': 'cube',
+            'name': f'{s["name"]} Кубок {i}',
+            'emoji': '🏆',
+            'description': f'Награда за {i} место',
+            'effect': 'cube'
+        })
+        save_user(e['user_id'], u)
     update_leaderboard()
     return True, "✅ Сезон завершён"
 
-def get_season_time_left():
-    s = get_current_season()
-    if not s['active']:
-        return None, None
-    end = datetime.fromisoformat(s['end'])
-    now = datetime.now()
-    if now > end:
-        end_season()
-        return None, None
-    return (end - now).days, ((end - now).seconds // 3600)
-
-# ========== КНОПКИ ==========
-def main_menu_kb():
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    markup.add(
+# ========== КЛАВИАТУРЫ ==========
+def main_kb():
+    kb = types.InlineKeyboardMarkup(row_width=2)
+    kb.add(
         types.InlineKeyboardButton("📊 Статус", callback_data="status"),
         types.InlineKeyboardButton("📈 Компании", callback_data="list"),
         types.InlineKeyboardButton("⏩ Next", callback_data="next"),
@@ -513,18 +456,18 @@ def main_menu_kb():
         types.InlineKeyboardButton("🎟️ Промо", callback_data="promo"),
         types.InlineKeyboardButton("❓ Помощь", callback_data="help")
     )
-    return markup
+    return kb
 
 def back_kb(target):
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("◀️ Назад", callback_data=target))
-    return markup
+    kb = types.InlineKeyboardMarkup()
+    kb.add(types.InlineKeyboardButton("◀️ Назад", callback_data=target))
+    return kb
 
-def admin_panel_kb():
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    markup.add(
-        types.InlineKeyboardButton("📝 Изменить текст", callback_data="admin_text"),
-        types.InlineKeyboardButton("🖼️ Изменить фото", callback_data="admin_images"),
+def admin_kb():
+    kb = types.InlineKeyboardMarkup(row_width=2)
+    kb.add(
+        types.InlineKeyboardButton("📝 Тексты", callback_data="admin_texts"),
+        types.InlineKeyboardButton("🖼️ Фото", callback_data="admin_images"),
         types.InlineKeyboardButton("⚙️ Настройки", callback_data="admin_settings"),
         types.InlineKeyboardButton("👥 Пользователи", callback_data="admin_users"),
         types.InlineKeyboardButton("🎟️ Промокоды", callback_data="admin_promos"),
@@ -534,194 +477,176 @@ def admin_panel_kb():
         types.InlineKeyboardButton("📦 Предметы", callback_data="admin_items"),
         types.InlineKeyboardButton("◀️ Назад", callback_data="back_to_main")
     )
-    return markup
+    return kb
 
-def admin_text_kb():
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    markup.add(
+def admin_texts_kb():
+    kb = types.InlineKeyboardMarkup()
+    kb.add(
         types.InlineKeyboardButton("📜 История", callback_data="edit_story"),
         types.InlineKeyboardButton("❓ Помощь", callback_data="edit_help"),
         types.InlineKeyboardButton("◀️ Назад", callback_data="admin_panel")
     )
-    return markup
+    return kb
 
 def admin_images_kb():
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    for key in IMAGES.keys():
-        name = {
-            'main': '🏠 Главная',
-            'companies': '📈 Компании',
-            'stats': '📊 Статистика',
-            'inventory': '🎒 Инвентарь',
-            'shop': '🛒 Магазин',
-            'leaderboard': '🏆 Лидеры'
-        }.get(key, key)
-        markup.add(types.InlineKeyboardButton(name, callback_data=f"edit_image_{key}"))
-    markup.add(types.InlineKeyboardButton("◀️ Назад", callback_data="admin_panel"))
-    return markup
+    kb = types.InlineKeyboardMarkup(row_width=1)
+    for key in IMAGES:
+        name = {'main': '🏠 Главная', 'companies': '📈 Компании', 'stats': '📊 Статистика', 'inventory': '🎒 Инвентарь', 'shop': '🛒 Магазин', 'leaderboard': '🏆 Лидеры'}.get(key, key)
+        kb.add(types.InlineKeyboardButton(name, callback_data=f"edit_img_{key}"))
+    kb.add(types.InlineKeyboardButton("◀️ Назад", callback_data="admin_panel"))
+    return kb
 
 def admin_settings_kb():
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    markup.add(
-        types.InlineKeyboardButton("💰 Стартовый капитал", callback_data="edit_start_money"),
-        types.InlineKeyboardButton("📈 Диапазон изменения цен", callback_data="edit_price_range"),
-        types.InlineKeyboardButton("🎲 Случайный бонус", callback_data="edit_random_bonus"),
-        types.InlineKeyboardButton("🎁 Лаки бокс", callback_data="edit_lucky_box"),
-        types.InlineKeyboardButton("💎 Бонусы подписок", callback_data="edit_subscription_bonus"),
+    kb = types.InlineKeyboardMarkup(row_width=1)
+    kb.add(
+        types.InlineKeyboardButton("💰 Стартовый капитал", callback_data="set_start_money"),
+        types.InlineKeyboardButton("📈 Диапазон цен", callback_data="set_price_range"),
+        types.InlineKeyboardButton("🎲 Случайный бонус", callback_data="set_random_bonus"),
+        types.InlineKeyboardButton("🎁 Лаки бокс", callback_data="set_lucky_box"),
+        types.InlineKeyboardButton("💎 Бонусы подписок", callback_data="set_sub_bonus"),
         types.InlineKeyboardButton("◀️ Назад", callback_data="admin_panel")
     )
-    return markup
+    return kb
 
 def admin_users_kb():
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    markup.add(
-        types.InlineKeyboardButton("📋 Список пользователей", callback_data="admin_user_list"),
-        types.InlineKeyboardButton("🔍 Найти пользователя", callback_data="admin_user_find"),
-        types.InlineKeyboardButton("🚫 Забанить пользователя", callback_data="admin_user_ban"),
-        types.InlineKeyboardButton("✅ Разбанить", callback_data="admin_user_unban"),
-        types.InlineKeyboardButton("💰 Выдать деньги", callback_data="admin_user_give"),
-        types.InlineKeyboardButton("📦 Выдать предмет", callback_data="admin_user_item"),
+    kb = types.InlineKeyboardMarkup(row_width=1)
+    kb.add(
+        types.InlineKeyboardButton("📋 Список", callback_data="user_list"),
+        types.InlineKeyboardButton("🔍 Найти", callback_data="user_find"),
+        types.InlineKeyboardButton("🚫 Забанить", callback_data="user_ban"),
+        types.InlineKeyboardButton("✅ Разбанить", callback_data="user_unban"),
+        types.InlineKeyboardButton("💰 Выдать деньги", callback_data="user_give"),
+        types.InlineKeyboardButton("📦 Выдать предмет", callback_data="user_item"),
         types.InlineKeyboardButton("◀️ Назад", callback_data="admin_panel")
     )
-    return markup
+    return kb
 
 def shop_kb():
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    markup.add(
-        types.InlineKeyboardButton("📦 РАСХОДНИКИ", callback_data="shop_category_consumable"),
-        types.InlineKeyboardButton("💎 ПОДПИСКИ", callback_data="shop_category_subscription"),
-        types.InlineKeyboardButton("🎁 СПЕЦПРЕДЛОЖЕНИЯ", callback_data="shop_category_special"),
+    kb = types.InlineKeyboardMarkup(row_width=1)
+    kb.add(
+        types.InlineKeyboardButton("📦 РАСХОДНИКИ", callback_data="cat_consumable"),
+        types.InlineKeyboardButton("💎 ПОДПИСКИ", callback_data="cat_subscription"),
+        types.InlineKeyboardButton("🎁 СПЕЦПРЕДЛОЖЕНИЯ", callback_data="cat_special"),
         types.InlineKeyboardButton("◀️ Назад", callback_data="back_to_main")
     )
-    return markup
+    return kb
 
-def shop_category_kb(category):
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    for item_id, item in SHOP_ITEMS.items():
-        if item['category'] == category:
-            markup.add(types.InlineKeyboardButton(
-                f"{item['emoji']} {item['name']} — ${item['price']}",
-                callback_data=f"shop_item_{item_id}"
-            ))
-    markup.add(types.InlineKeyboardButton("◀️ Назад", callback_data="shop"))
-    return markup
+def shop_category_kb(cat):
+    kb = types.InlineKeyboardMarkup(row_width=1)
+    for iid, item in SHOP_ITEMS.items():
+        if item['category'] == cat:
+            kb.add(types.InlineKeyboardButton(f"{item['emoji']} {item['name']} — ${item['price']}", callback_data=f"buy_{iid}"))
+    kb.add(types.InlineKeyboardButton("◀️ Назад", callback_data="shop"))
+    return kb
 
 def inventory_kb(user):
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    inventory = user.get('inventory', [])
-    if inventory:
-        for i, item in enumerate(inventory):
-            markup.add(types.InlineKeyboardButton(
-                f"{item['emoji']} {item['name']}",
-                callback_data=f"inv_item_{i}"
-            ))
-    else:
-        markup.add(types.InlineKeyboardButton("😢 Инвентарь пуст", callback_data="noop"))
-    markup.add(types.InlineKeyboardButton("◀️ Назад", callback_data="back_to_main"))
-    return markup
+    kb = types.InlineKeyboardMarkup(row_width=1)
+    for i, item in enumerate(user.get('inventory', [])):
+        kb.add(types.InlineKeyboardButton(f"{item['emoji']} {item['name']}", callback_data=f"use_{i}"))
+    kb.add(types.InlineKeyboardButton("◀️ Назад", callback_data="back_to_main"))
+    return kb
 
-def companies_kb(page, total_pages):
-    markup = types.InlineKeyboardMarkup(row_width=3)
-    
-    if total_pages > 1:
+def companies_kb(page, total):
+    kb = types.InlineKeyboardMarkup(row_width=3)
+    if total > 1:
         row = []
         if page > 1:
             row.append(types.InlineKeyboardButton("◀️", callback_data=f"page_{page-1}"))
         else:
             row.append(types.InlineKeyboardButton("◀️", callback_data="noop"))
-            
-        row.append(types.InlineKeyboardButton(f"{page}/{total_pages}", callback_data="noop"))
-        
-        if page < total_pages:
+        row.append(types.InlineKeyboardButton(f"{page}/{total}", callback_data="noop"))
+        if page < total:
             row.append(types.InlineKeyboardButton("▶️", callback_data=f"page_{page+1}"))
         else:
             row.append(types.InlineKeyboardButton("▶️", callback_data="noop"))
-            
-        markup.row(*row)
-    
-    markup.row(
+        kb.row(*row)
+    kb.row(
         types.InlineKeyboardButton("🏠 Главная", callback_data="back_to_main"),
-        types.InlineKeyboardButton("🔄 Обновить", callback_data="refresh_companies")
+        types.InlineKeyboardButton("🔄 Обновить", callback_data="refresh")
     )
-    return markup
+    return kb
 
 # ========== КОМАНДЫ ==========
-@bot.message_handler(commands=['start', 'trade'])
-def start_cmd(message):
-    uid = message.from_user.id
-    
+@bot.message_handler(commands=['start'])
+def start_cmd(m):
+    uid = m.from_user.id
     if is_banned(uid):
-        bot.send_message(uid, "🚫 Вы забанены в игре!")
+        bot.send_message(uid, "🚫 Вы забанены!")
         return
     
-    name = message.from_user.username or message.from_user.first_name or f"User_{uid}"
+    name = m.from_user.username or m.from_user.first_name or f"User_{uid}"
     user = get_user(uid)
-    if not user:
-        bot.send_message(uid, "🚫 Вы забанены в игре!")
-        return
-    
     user['username'] = name
     user['last_seen'] = str(datetime.now())
     save_user(uid, user)
     
-    season = get_current_season()
-    d, h = get_season_time_left()
-    time_left = f"\n📅 До конца сезона: {d}д {h}ч" if d else ""
-    
-    story = get_setting('story_text')
-    text = f"{story}\n\n💰 Твой баланс: ${user['money']:,.2f}\n🏆 Кубков: {user.get('cubes', 0)}{time_left}\n\n📆 День: {user['day']}"
-    
-    if IMAGES.get('main'):
-        bot.send_photo(uid, IMAGES['main'], caption=text, parse_mode="Markdown", reply_markup=main_menu_kb())
-    else:
-        bot.send_message(uid, text, parse_mode="Markdown", reply_markup=main_menu_kb())
+    text = f"{STORY_TEXT}\n\n💰 Баланс: ${user['money']:,.2f}\n🏆 Кубков: {user.get('cubes', 0)}\n\n📆 День: {user['day']}"
+    bot.send_photo(uid, IMAGES['main'], caption=text, parse_mode="Markdown", reply_markup=main_kb())
 
 @bot.message_handler(commands=['admin'])
-def admin_cmd(message):
-    if message.from_user.id != ADMIN_ID:
+def admin_cmd(m):
+    if m.from_user.id != ADMIN_ID:
+        bot.reply_to(m, "❌ Недостаточно прав!")
         return
     text = "🔧 *Админ-панель*\n\nВыберите действие:"
-    if IMAGES.get('main'):
-        bot.send_photo(message.chat.id, IMAGES['main'], caption=text, parse_mode="Markdown", reply_markup=admin_panel_kb())
-    else:
-        bot.send_message(message.chat.id, text, parse_mode="Markdown", reply_markup=admin_panel_kb())
+    bot.send_photo(m.chat.id, IMAGES['main'], caption=text, parse_mode="Markdown", reply_markup=admin_kb())
 
 @bot.message_handler(commands=['help'])
 def help_cmd(m):
-    help_text = get_setting('help_text')
-    bot.send_message(m.chat.id, help_text, parse_mode="Markdown", reply_markup=back_kb("back_to_main"))
+    bot.send_message(m.chat.id, HELP_TEXT, parse_mode="Markdown", reply_markup=back_kb("back_to_main"))
 
 @bot.message_handler(commands=['tbuy'])
-def buy_stock_cmd(m):
+def buy_cmd(m):
     if is_banned(m.from_user.id):
         bot.reply_to(m, "🚫 Вы забанены!")
         return
     try:
-        _, ticker, am = m.text.split()
+        _, ticker, amt = m.text.split()
         ticker = ticker.upper()
-        am = int(am)
-        ok, msg = buy_stock(m.from_user.id, ticker, am)
-        bot.reply_to(m, msg)
-        if ok:
-            update_user_last_seen(m.from_user.id)
+        amt = int(amt)
+        companies = load_companies()
+        if ticker not in companies:
+            bot.reply_to(m, "❌ Нет такой компании")
+            return
+        user = get_user(m.from_user.id)
+        price = companies[ticker]['price']
+        total = price * amt
+        if user['money'] >= total:
+            user['money'] -= total
+            user['portfolio'][ticker] = user['portfolio'].get(ticker, 0) + amt
+            save_user(m.from_user.id, user)
+            update_leaderboard()
+            bot.reply_to(m, f"✅ Куплено {amt} {ticker} за ${total:,.2f}")
+        else:
+            bot.reply_to(m, f"❌ Нужно ${total:,.2f}")
     except:
-        bot.reply_to(m, "❌ Формат: /tbuy AAPL 5")
+        bot.reply_to(m, "❌ /tbuy AAPL 5")
 
 @bot.message_handler(commands=['tsell'])
-def sell_stock_cmd(m):
+def sell_cmd(m):
     if is_banned(m.from_user.id):
         bot.reply_to(m, "🚫 Вы забанены!")
         return
     try:
-        _, ticker, am = m.text.split()
+        _, ticker, amt = m.text.split()
         ticker = ticker.upper()
-        am = int(am)
-        ok, msg = sell_stock(m.from_user.id, ticker, am)
-        bot.reply_to(m, msg)
-        if ok:
-            update_user_last_seen(m.from_user.id)
+        amt = int(amt)
+        user = get_user(m.from_user.id)
+        if ticker not in user['portfolio'] or user['portfolio'][ticker] < amt:
+            bot.reply_to(m, f"❌ У вас {user['portfolio'].get(ticker, 0)} акций")
+            return
+        companies = load_companies()
+        price = companies[ticker]['price']
+        total = price * amt
+        user['money'] += total
+        user['portfolio'][ticker] -= amt
+        if user['portfolio'][ticker] == 0:
+            del user['portfolio'][ticker]
+        save_user(m.from_user.id, user)
+        update_leaderboard()
+        bot.reply_to(m, f"✅ Продано {amt} {ticker} за ${total:,.2f}")
     except:
-        bot.reply_to(m, "❌ Формат: /tsell AAPL 5")
+        bot.reply_to(m, "❌ /tsell AAPL 5")
 
 @bot.message_handler(commands=['tnext'])
 def next_cmd(m):
@@ -729,54 +654,25 @@ def next_cmd(m):
     if is_banned(uid):
         bot.reply_to(m, "🚫 Вы забанены!")
         return
-    
-    update_company_prices()
+    update_prices()
     user = get_user(uid)
-    if not user:
-        bot.reply_to(m, "🚫 Вы забанены!")
-        return
-    
     user['day'] += 1
-    user['last_seen'] = str(datetime.now())
     save_user(uid, user)
     update_leaderboard()
-    
-    season = get_current_season()
-    d, h = get_season_time_left()
-    time_left = f"\n📅 До конца сезона: {d}д {h}ч" if d else ""
-    
-    story = get_setting('story_text')
-    text = f"{story}\n\n💰 Твой баланс: ${user['money']:,.2f}\n🏆 Кубков: {user.get('cubes', 0)}{time_left}\n\n📆 День: {user['day']}"
-    
-    if IMAGES.get('main'):
-        bot.send_photo(uid, IMAGES['main'], caption=text, parse_mode="Markdown", reply_markup=main_menu_kb())
-    else:
-        bot.send_message(uid, text, parse_mode="Markdown", reply_markup=main_menu_kb())
+    text = f"{STORY_TEXT}\n\n💰 Баланс: ${user['money']:,.2f}\n🏆 Кубков: {user.get('cubes', 0)}\n\n📆 День: {user['day']}"
+    bot.send_photo(uid, IMAGES['main'], caption=text, parse_mode="Markdown", reply_markup=main_kb())
 
 @bot.message_handler(commands=['tpromo'])
-def promo_activate_cmd(m):
+def promo_cmd(m):
     if is_banned(m.from_user.id):
         bot.reply_to(m, "🚫 Вы забанены!")
         return
     try:
-        code = m.text.split()[1].upper()
-        promo = get_promocode(code)
-        if promo:
-            remaining = promo['max_uses'] - promo['used_count']
-            text = f"🎟️ Промокод: {code}\n💰 +${promo['bonus']}\n🎫 Осталось: {remaining}"
-            markup = types.InlineKeyboardMarkup()
-            markup.add(
-                types.InlineKeyboardButton("✅ Активировать", callback_data=f"confirm_promo_{code}"),
-                types.InlineKeyboardButton("❌ Отмена", callback_data="back_to_main")
-            )
-            if IMAGES.get('main'):
-                bot.send_photo(m.chat.id, IMAGES['main'], caption=text, reply_markup=markup)
-            else:
-                bot.send_message(m.chat.id, text, reply_markup=markup)
-        else:
-            bot.reply_to(m, "❌ Промокод не найден")
+        code = m.text.split()[1]
+        ok, msg = use_promo(m.from_user.id, code)
+        bot.reply_to(m, msg)
     except:
-        bot.reply_to(m, "❌ Использование: /tpromo КОД")
+        bot.reply_to(m, "❌ /tpromo КОД")
 
 @bot.message_handler(commands=['tlist'])
 def list_cmd(m):
@@ -784,25 +680,15 @@ def list_cmd(m):
     if is_banned(uid):
         bot.reply_to(m, "🚫 Вы забанены!")
         return
-    
     user = get_user(uid)
-    if not user:
-        bot.reply_to(m, "🚫 Вы забанены!")
-        return
-    
     items, total = get_companies_page(1)
     pages = (total + 9) // 10
-    
-    text = f"📋 ВСЕ КОМПАНИИ (День {user['day']})\n\n"
-    for ticker, data in items:
-        change = get_price_change(data.get('prev_price', data['price']), data['price'])
+    text = f"📋 КОМПАНИИ (День {user['day']})\n\n"
+    for t, d in items:
+        change = get_price_change(d.get('prev_price', d['price']), d['price'])
         emoji = "🟢" if change.startswith('+') else "🔴" if change.startswith('-') else "⚪"
-        text += f"{ticker} — {data['name']}\n💰 ${data['price']:,.2f} {emoji} {change}\n\n"
-    
-    if IMAGES.get('companies'):
-        bot.send_photo(uid, IMAGES['companies'], caption=text, reply_markup=companies_kb(1, pages))
-    else:
-        bot.send_message(uid, text, reply_markup=companies_kb(1, pages))
+        text += f"{t} — {d['name']}\n💰 ${d['price']:,.2f} {emoji} {change}\n\n"
+    bot.send_photo(uid, IMAGES['companies'], caption=text, reply_markup=companies_kb(1, pages))
 
 @bot.message_handler(commands=['tstats'])
 def stats_cmd(m):
@@ -810,65 +696,26 @@ def stats_cmd(m):
     if is_banned(uid):
         bot.reply_to(m, "🚫 Вы забанены!")
         return
-    
     user = get_user(uid)
-    if not user:
-        bot.reply_to(m, "🚫 Вы забанены!")
-        return
-    
     cap = calculate_capital(uid)
-    port = get_portfolio(uid)
-    
-    text = f"📊 ТВОЯ СТАТИСТИКА (День {user['day']})\n\n💰 Баланс: ${user['money']:,.2f}\n💵 Капитал: ${cap:,.2f}\n🏆 Кубков: {user.get('cubes',0)}\n"
-    
-    if user.get('active_effects'):
-        text += "\n✨ *Активные эффекты:*\n"
-        if 'booster' in user['active_effects']:
-            text += "🚀 Ускоритель активен\n"
-    
+    text = f"📊 СТАТИСТИКА (День {user['day']})\n\n💰 Баланс: ${user['money']:,.2f}\n💵 Капитал: ${cap:,.2f}\n🏆 Кубков: {user.get('cubes', 0)}\n"
     if user.get('shields', 0) > 0:
         text += f"🛡️ Страховок: {user['shields']}\n"
-    
-    if user.get('subscriptions'):
-        text += "\n💎 *Подписки:*\n"
-        for sub, data in user['subscriptions'].items():
-            text += f"• +{data['bonus']}% до {data['end_date'][:10]}\n"
-    
-    text += "\n📋 *Портфель:*\n"
-    if port:
-        for p in port:
-            text += f"{p['ticker']}: {p['amount']} шт. (${p['amount']*p['price']:,.2f})\n"
-    else:
-        text += "Пусто\n"
-    
-    lb = get_leaderboard(50)
-    for i, e in enumerate(lb, 1):
-        if e['user_id'] == uid:
-            text += f"\n⭐ Место: {i} из {len(lb)}"
-            break
-    
-    if IMAGES.get('stats'):
-        bot.send_photo(uid, IMAGES['stats'], caption=text, parse_mode="Markdown", reply_markup=back_kb("back_to_main"))
-    else:
-        bot.send_message(uid, text, parse_mode="Markdown", reply_markup=back_kb("back_to_main"))
+    text += "\n📋 Портфель:\n"
+    for t, a in user.get('portfolio', {}).items():
+        companies = load_companies()
+        if t in companies:
+            text += f"{t}: {a} шт. (${a * companies[t]['price']:,.2f})\n"
+    bot.send_photo(uid, IMAGES['stats'], caption=text, reply_markup=back_kb("back_to_main"))
 
 @bot.message_handler(commands=['tleader'])
 def leader_cmd(m):
-    if is_banned(m.from_user.id):
-        bot.reply_to(m, "🚫 Вы забанены!")
-        return
-    
     lb = get_leaderboard(10)
     text = "🏆 ТАБЛИЦА ЛИДЕРОВ\n\n"
-    
     for i, e in enumerate(lb, 1):
-        medal = "🥇" if i==1 else "🥈" if i==2 else "🥉" if i==3 else f"{i}."
+        medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
         text += f"{medal} {e['username'][:15]} — ${e['capital']:,.2f} (🏆 {e['cubes']})\n"
-    
-    if IMAGES.get('leaderboard'):
-        bot.send_photo(m.chat.id, IMAGES['leaderboard'], caption=text, reply_markup=back_kb("back_to_main"))
-    else:
-        bot.send_message(m.chat.id, text, reply_markup=back_kb("back_to_main"))
+    bot.send_photo(m.chat.id, IMAGES['leaderboard'], caption=text, reply_markup=back_kb("back_to_main"))
 
 @bot.message_handler(commands=['inventory'])
 def inventory_cmd(m):
@@ -876,623 +723,634 @@ def inventory_cmd(m):
     if is_banned(uid):
         bot.reply_to(m, "🚫 Вы забанены!")
         return
-    
     user = get_user(uid)
-    if not user:
-        bot.reply_to(m, "🚫 Вы забанены!")
-        return
-    
-    text = "🎒 ТВОЙ ИНВЕНТАРЬ\n\n"
-    if user.get('inventory'):
-        for i, item in enumerate(user['inventory'], 1):
-            text += f"{i}. {item['emoji']} {item['name']}\n"
-    else:
+    text = "🎒 ИНВЕНТАРЬ\n\n"
+    for i, item in enumerate(user.get('inventory', []), 1):
+        text += f"{i}. {item['emoji']} {item['name']}\n"
+    if not user.get('inventory'):
         text += "Пусто\n"
-    text += f"\n🏆 Кубков: {user.get('cubes',0)}"
-    
-    if IMAGES.get('inventory'):
-        bot.send_photo(uid, IMAGES['inventory'], caption=text, reply_markup=inventory_kb(user))
-    else:
-        bot.send_message(uid, text, reply_markup=inventory_kb(user))
+    text += f"\n🏆 Кубков: {user.get('cubes', 0)}"
+    bot.send_photo(uid, IMAGES['inventory'], caption=text, reply_markup=inventory_kb(user))
 
 @bot.message_handler(commands=['shop'])
 def shop_cmd(m):
     if is_banned(m.from_user.id):
         bot.reply_to(m, "🚫 Вы забанены!")
         return
-    
-    text = "🛒 МАГАЗИН\n\nВыбери категорию:"
-    if IMAGES.get('shop'):
-        bot.send_photo(m.chat.id, IMAGES['shop'], caption=text, reply_markup=shop_kb())
-    else:
-        bot.send_message(m.chat.id, text, reply_markup=shop_kb())
+    bot.send_photo(m.chat.id, IMAGES['shop'], caption="🛒 МАГАЗИН\n\nВыбери категорию:", reply_markup=shop_kb())
 
 @bot.message_handler(commands=['promo'])
-def promo_list_cmd(m):
+def promolist_cmd(m):
     if is_banned(m.from_user.id):
         bot.reply_to(m, "🚫 Вы забанены!")
         return
-    
-    promos = load_promocodes()
-    text = "🎟️ ДОСТУПНЫЕ ПРОМОКОДЫ\n\n"
+    promos = load_promos()
+    text = "🎟️ ПРОМОКОДЫ\n\n"
     for code, d in promos.items():
         rem = d['max_uses'] - d['used_count']
-        text += f"`{code}` — +${d['bonus']} (осталось {rem}/{d['max_uses']})\n"
-    text += "\nАктивировать: /tpromo КОД"
-    
-    if IMAGES.get('main'):
-        bot.send_photo(m.chat.id, IMAGES['main'], caption=text, reply_markup=back_kb("back_to_main"))
-    else:
-        bot.send_message(m.chat.id, text, reply_markup=back_kb("back_to_main"))
+        text += f"`{code}` — +${d['bonus']} (осталось {rem})\n"
+    bot.send_message(m.chat.id, text, parse_mode="Markdown", reply_markup=back_kb("back_to_main"))
 
-@bot.message_handler(commands=['admin'])
-def admin_cmd(message):
-    if message.from_user.id != ADMIN_ID:
-        bot.reply_to(message, "❌ Недостаточно прав!")
-        return
-    
-    text = "🔧 *Админ-панель*\n\nВыберите действие:"
-    if IMAGES.get('main'):
-        bot.send_photo(message.chat.id, IMAGES['main'], caption=text, parse_mode="Markdown", reply_markup=admin_panel_kb())
-    else:
-        bot.send_message(message.chat.id, text, parse_mode="Markdown", reply_markup=admin_panel_kb())
-        
-# ========== ОБРАБОТКА КНОПОК ==========
+# ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
+def get_companies_page(page=1, per_page=10):
+    items = list(load_companies().items())
+    total = len(items)
+    start = (page - 1) * per_page
+    return items[start:start+per_page], total
+
+# ========== КОЛБЭКИ ==========
 @bot.callback_query_handler(func=lambda call: True)
-def callback_handler(call):
+def handle_callback(call):
     uid = call.from_user.id
     data = call.data
     
-    # Защита от чужих кнопок
     if call.message.chat.type != 'private' and call.from_user.id != call.message.from_user.id:
         bot.answer_callback_query(call.id, "Это не твои кнопки 🤬", show_alert=True)
         return
     
-    try:
-        # ===== ВОЗВРАТ В ГЛАВНОЕ МЕНЮ =====
-        if data == "back_to_main":
-            user = get_user(uid)
-            if is_banned(uid) or not user:
-                bot.answer_callback_query(call.id, "🚫 Вы забанены!")
-                return
-                
-            season = get_current_season()
-            d, h = get_season_time_left()
-            time_left = f"\n📅 До конца сезона: {d}д {h}ч" if d else ""
-            
-            story = get_setting('story_text')
-            text = f"{story}\n\n💰 Твой баланс: ${user['money']:,.2f}\n🏆 Кубков: {user.get('cubes', 0)}{time_left}\n\n📆 День: {user['day']}"
-            
-            if IMAGES.get('main'):
-                bot.edit_message_media(
-                    types.InputMediaPhoto(IMAGES['main'], caption=text, parse_mode="Markdown"),
-                    chat_id=call.message.chat.id,
-                    message_id=call.message.message_id,
-                    reply_markup=main_menu_kb()
-                )
-            else:
-                bot.edit_message_text(
-                    text,
-                    call.message.chat.id,
-                    call.message.message_id,
-                    parse_mode="Markdown",
-                    reply_markup=main_menu_kb()
-                )
-            bot.answer_callback_query(call.id)
+    # Главное меню
+    if data == "back_to_main":
+        if is_banned(uid):
+            bot.answer_callback_query(call.id, "🚫 Вы забанены!")
             return
-
-        # ===== АДМИН-ПАНЕЛЬ =====
-        if data == "admin_panel":
-            if uid != ADMIN_ID:
-                bot.answer_callback_query(call.id, "❌ Недостаточно прав")
-                return
-            text = "🔧 *Админ-панель*\n\nВыберите действие:"
-            if IMAGES.get('main'):
-                bot.edit_message_media(
-                    types.InputMediaPhoto(IMAGES['main'], caption=text, parse_mode="Markdown"),
-                    chat_id=call.message.chat.id,
-                    message_id=call.message.message_id,
-                    reply_markup=admin_panel_kb()
-                )
-            else:
-                bot.edit_message_text(
-                    text,
-                    call.message.chat.id,
-                    call.message.message_id,
-                    parse_mode="Markdown",
-                    reply_markup=admin_panel_kb()
-                )
-            bot.answer_callback_query(call.id)
-            return
-
-        # ===== ИЗМЕНЕНИЕ ТЕКСТА =====
-        if data == "admin_text":
-            if uid != ADMIN_ID:
-                bot.answer_callback_query(call.id, "❌ Недостаточно прав")
-                return
-            text = "📝 *Редактирование текстов*\n\nВыберите текст для редактирования:"
-            bot.edit_message_caption(
-                call.message.chat.id,
-                call.message.message_id,
-                caption=text,
-                parse_mode="Markdown",
-                reply_markup=admin_text_kb()
-            )
-            bot.answer_callback_query(call.id)
-            return
-
-        if data == "edit_story":
-            if uid != ADMIN_ID:
-                bot.answer_callback_query(call.id, "❌ Недостаточно прав")
-                return
-            bot.send_message(uid, "📝 Отправьте новый текст для истории (предыстории).\nОтправьте 'отмена' для отмены.")
-            bot.register_next_step_handler(call.message, set_story_text)
-            bot.answer_callback_query(call.id)
-            return
-
-        if data == "edit_help":
-            if uid != ADMIN_ID:
-                bot.answer_callback_query(call.id, "❌ Недостаточно прав")
-                return
-            bot.send_message(uid, "❓ Отправьте новый текст для раздела помощи.\nОтправьте 'отмена' для отмены.")
-            bot.register_next_step_handler(call.message, set_help_text)
-            bot.answer_callback_query(call.id)
-            return
-
-        # ===== ИЗМЕНЕНИЕ ФОТО =====
-        if data == "admin_images":
-            if uid != ADMIN_ID:
-                bot.answer_callback_query(call.id, "❌ Недостаточно прав")
-                return
-            text = "🖼️ *Редактирование фото*\n\nВыберите раздел для изменения фото:"
-            bot.edit_message_caption(
-                call.message.chat.id,
-                call.message.message_id,
-                caption=text,
-                parse_mode="Markdown",
-                reply_markup=admin_images_kb()
-            )
-            bot.answer_callback_query(call.id)
-            return
-
-        if data.startswith("edit_image_"):
-            if uid != ADMIN_ID:
-                bot.answer_callback_query(call.id, "❌ Недостаточно прав")
-                return
-            image_key = data[11:]
-            bot.send_message(uid, f"🖼️ Отправьте новое фото для раздела '{image_key}'\nОтправьте 'отмена' для отмены.")
-            bot.register_next_step_handler(call.message, set_image, image_key)
-            bot.answer_callback_query(call.id)
-            return
-
-        # ===== НАСТРОЙКИ =====
-        if data == "admin_settings":
-            if uid != ADMIN_ID:
-                bot.answer_callback_query(call.id, "❌ Недостаточно прав")
-                return
-            text = "⚙️ *Настройки игры*\n\nВыберите параметр для изменения:"
-            bot.edit_message_caption(
-                call.message.chat.id,
-                call.message.message_id,
-                caption=text,
-                parse_mode="Markdown",
-                reply_markup=admin_settings_kb()
-            )
-            bot.answer_callback_query(call.id)
-            return
-
-        if data == "edit_start_money":
-            if uid != ADMIN_ID:
-                bot.answer_callback_query(call.id, "❌ Недостаточно прав")
-                return
-            current = get_setting('start_money')
-            bot.send_message(uid, f"💰 Текущий стартовый капитал: ${current}\n\nВведите новое значение (число):\nОтправьте 'отмена' для отмены.")
-            bot.register_next_step_handler(call.message, set_start_money)
-            bot.answer_callback_query(call.id)
-            return
-
-        if data == "edit_price_range":
-            if uid != ADMIN_ID:
-                bot.answer_callback_query(call.id, "❌ Недостаточно прав")
-                return
-            current_min = get_setting('price_change_min')
-            current_max = get_setting('price_change_max')
-            bot.send_message(uid, f"📈 Текущий диапазон изменения цен: от {current_min*100}% до {current_max*100}%\n\nВведите новый диапазон в формате: МИН МАКС\nПример: -0.1 0.1\nОтправьте 'отмена' для отмены.")
-            bot.register_next_step_handler(call.message, set_price_range)
-            bot.answer_callback_query(call.id)
-            return
-
-        if data == "edit_random_bonus":
-            if uid != ADMIN_ID:
-                bot.answer_callback_query(call.id, "❌ Недостаточно прав")
-                return
-            current_min = get_setting('random_bonus_min')
-            current_max = get_setting('random_bonus_max')
-            bot.send_message(uid, f"🎲 Текущий диапазон случайного бонуса: от ${current_min} до ${current_max}\n\nВведите новый диапазон в формате: МИН МАКС\nПример: 50 500\nОтправьте 'отмена' для отмены.")
-            bot.register_next_step_handler(call.message, set_random_bonus)
-            bot.answer_callback_query(call.id)
-            return
-
-        if data == "edit_lucky_box":
-            if uid != ADMIN_ID:
-                bot.answer_callback_query(call.id, "❌ Недостаточно прав")
-                return
-            current_min = get_setting('lucky_box_money_min')
-            current_max = get_setting('lucky_box_money_max')
-            bot.send_message(uid, f"🎁 Текущий диапазон денежного приза в лаки боксе: от ${current_min} до ${current_max}\n\nВведите новый диапазон в формате: МИН МАКС\nПример: 100 1000\nОтправьте 'отмена' для отмены.")
-            bot.register_next_step_handler(call.message, set_lucky_box)
-            bot.answer_callback_query(call.id)
-            return
-
-        if data == "edit_subscription_bonus":
-            if uid != ADMIN_ID:
-                bot.answer_callback_query(call.id, "❌ Недостаточно прав")
-                return
-            vip = get_setting('vip_bonus')
-            trader = get_setting('trader_bonus')
-            investor = get_setting('investor_bonus')
-            bot.send_message(uid, f"💎 Текущие бонусы подписок:\nVIP: +{vip}%\nТрейдер PRO: +{trader}%\nИнвестор: +{investor}%\n\nВведите новые значения в формате: VIP ТРЕЙДЕР ИНВЕСТОР\nПример: 10 15 20\nОтправьте 'отмена' для отмены.")
-            bot.register_next_step_handler(call.message, set_subscription_bonus)
-            bot.answer_callback_query(call.id)
-            return
-
-        # ===== ПОЛЬЗОВАТЕЛИ =====
-        if data == "admin_users":
-            if uid != ADMIN_ID:
-                bot.answer_callback_query(call.id, "❌ Недостаточно прав")
-                return
-            text = "👥 *Управление пользователями*\n\nВыберите действие:"
-            bot.edit_message_caption(
-                call.message.chat.id,
-                call.message.message_id,
-                caption=text,
-                parse_mode="Markdown",
-                reply_markup=admin_users_kb()
-            )
-            bot.answer_callback_query(call.id)
-            return
-
-        if data == "admin_user_list":
-            if uid != ADMIN_ID:
-                bot.answer_callback_query(call.id, "❌ Недостаточно прав")
-                return
-            users = []
-            for f in os.listdir(USERS_DIR):
-                if f.endswith('.json'):
-                    uid_user = int(f[:-5])
-                    user = get_user(uid_user)
-                    if user:
-                        users.append(f"{uid_user} - {user.get('username', 'Unknown')} - ${user['money']:,.2f}")
-            
-            text = "📋 *Список пользователей*\n\n" + "\n".join(users[:50])
-            if len(users) > 50:
-                text += f"\n... и еще {len(users)-50}"
-            bot.send_message(uid, text, parse_mode="Markdown")
-            bot.answer_callback_query(call.id)
-            return
-
-        if data == "admin_user_ban":
-            if uid != ADMIN_ID:
-                bot.answer_callback_query(call.id, "❌ Недостаточно прав")
-                return
-            bot.send_message(uid, "🚫 Введите ID пользователя для бана:\nОтправьте 'отмена' для отмены.")
-            bot.register_next_step_handler(call.message, ban_user_cmd)
-            bot.answer_callback_query(call.id)
-            return
-
-        if data == "admin_user_unban":
-            if uid != ADMIN_ID:
-                bot.answer_callback_query(call.id, "❌ Недостаточно прав")
-                return
-            bot.send_message(uid, "✅ Введите ID пользователя для разбана:\nОтправьте 'отмена' для отмены.")
-            bot.register_next_step_handler(call.message, unban_user_cmd)
-            bot.answer_callback_query(call.id)
-            return
-
-        if data == "admin_user_give":
-            if uid != ADMIN_ID:
-                bot.answer_callback_query(call.id, "❌ Недостаточно прав")
-                return
-            bot.send_message(uid, "💰 Введите ID пользователя и сумму через пробел:\nПример: 123456789 1000\nОтправьте 'отмена' для отмены.")
-            bot.register_next_step_handler(call.message, give_money_cmd)
-            bot.answer_callback_query(call.id)
-            return
-
-        if data == "admin_user_item":
-            if uid != ADMIN_ID:
-                bot.answer_callback_query(call.id, "❌ Недостаточно прав")
-                return
-            bot.send_message(uid, "📦 Введите ID пользователя и ID предмета через пробел:\nДоступные предметы: booster, shield, analyst, random, lucky_box\nПример: 123456789 booster\nОтправьте 'отмена' для отмены.")
-            bot.register_next_step_handler(call.message, give_item_cmd)
-            bot.answer_callback_query(call.id)
-            return
-
-        if data == "admin_user_find":
-            if uid != ADMIN_ID:
-                bot.answer_callback_query(call.id, "❌ Недостаточно прав")
-                return
-            bot.send_message(uid, "🔍 Введите ID или username пользователя для поиска:\nОтправьте 'отмена' для отмены.")
-            bot.register_next_step_handler(call.message, find_user_cmd)
-            bot.answer_callback_query(call.id)
-            return
-
-        # ===== ПРОМОКОДЫ =====
-        if data == "admin_promos":
-            if uid != ADMIN_ID:
-                bot.answer_callback_query(call.id, "❌ Недостаточно прав")
-                return
-            promos = load_promocodes()
-            text = "🎟️ *Управление промокодами*\n\n"
-            for code, d in promos.items():
-                text += f"`{code}` — +${d['bonus']} — {d['used_count']}/{d['max_uses']}\n"
-            text += "\n/addpromo КОД БОНУС МАКС - создать\n/delpromo КОД - удалить"
-            bot.send_message(uid, text, parse_mode="Markdown")
-            bot.answer_callback_query(call.id)
-            return
-
-        # ===== КОМПАНИИ =====
-        if data == "admin_companies":
-            if uid != ADMIN_ID:
-                bot.answer_callback_query(call.id, "❌ Недостаточно прав")
-                return
-            companies = load_companies()
-            text = "🏢 *Управление компаниями*\n\n"
-            for t, d in list(companies.items())[:20]:
-                text += f"{t} — {d['name']} — ${d['price']:,.2f}\n"
-            text += "\n/editprice ТИКЕР ЦЕНА - изменить цену\n/addcompany ТИКЕР НАЗВАНИЕ ЦЕНА - добавить"
-            bot.send_message(uid, text, parse_mode="Markdown")
-            bot.answer_callback_query(call.id)
-            return
-
-        # ===== СТАТИСТИКА =====
-        if data == "admin_stats":
-            if uid != ADMIN_ID:
-                bot.answer_callback_query(call.id, "❌ Недостаточно прав")
-                return
-            total_users = len([f for f in os.listdir(USERS_DIR) if f.endswith('.json')])
-            banned_users = len(load_banned_users())
-            active_users = total_users - banned_users
-            
-            total_money = 0
-            for f in os.listdir(USERS_DIR):
-                if f.endswith('.json'):
-                    user = get_user(int(f[:-5]))
-                    if user:
-                        total_money += user['money']
-            
-            promos = load_promocodes()
-            total_promos = len(promos)
-            total_acts = sum(p['used_count'] for p in promos.values())
-            companies = load_companies()
-            
-            text = f"📊 *СТАТИСТИКА ИГРЫ*\n\n👥 Всего игроков: {total_users}\n🚫 Забанено: {banned_users}\n✅ Активных: {active_users}\n💰 Всего денег: ${total_money:,.2f}\n🎟️ Промокодов: {total_promos}\n🎫 Активаций: {total_acts}\n🏢 Компаний: {len(companies)}"
-            bot.send_message(uid, text, parse_mode="Markdown")
-            bot.answer_callback_query(call.id)
-            return
-
-        # ===== СЕЗОН =====
-        if data == "admin_season":
-            if uid != ADMIN_ID:
-                bot.answer_callback_query(call.id, "❌ Недостаточно прав")
-                return
-            season = get_current_season()
-            d, h = get_season_time_left()
-            text = f"🏆 *Управление сезоном*\n\nНазвание: {season['name']}\nАктивен: {'✅' if season['active'] else '❌'}\nНачало: {season['start'][:10]}\nКонец: {season['end'][:10]}\nОсталось: {d}д {h}ч" if d else "Завершен"
-            text += "\n\n/createseason НАЗВАНИЕ ДНЕЙ - создать сезон\n/endseason - завершить сезон"
-            bot.send_message(uid, text, parse_mode="Markdown")
-            bot.answer_callback_query(call.id)
-            return
-
-        # ===== ПРЕДМЕТЫ =====
-        if data == "admin_items":
-            if uid != ADMIN_ID:
-                bot.answer_callback_query(call.id, "❌ Недостаточно прав")
-                return
-            text = "📦 *Управление предметами*\n\n"
-            for item_id, item in SHOP_ITEMS.items():
-                text += f"{item['emoji']} {item['name']} — ${item['price']} ({item['category']})\n"
-            text += "\n/edititemprice ID ЦЕНА - изменить цену\n/additem ID НАЗВАНИЕ ЦЕНА - добавить предмет"
-            bot.send_message(uid, text, parse_mode="Markdown")
-            bot.answer_callback_query(call.id)
-            return
-
-        # ===== ОСТАЛЬНЫЕ ОБРАБОТЧИКИ (без изменений) =====
-        # ... (здесь остаются все остальные обработчики из исходного кода)
-        
-    except Exception as e:
-        print(f"[ERROR] {e}")
-        bot.answer_callback_query(call.id, "❌ Ошибка")
-
-# ========== ОБРАБОТЧИКИ ДЛЯ АДМИНА ==========
-def set_story_text(message):
-    if message.text.lower() == 'отмена':
-        bot.send_message(message.chat.id, "❌ Отменено")
-        return
-    update_setting('story_text', message.text)
-    bot.send_message(message.chat.id, f"✅ История обновлена!")
-
-def set_help_text(message):
-    if message.text.lower() == 'отмена':
-        bot.send_message(message.chat.id, "❌ Отменено")
-        return
-    update_setting('help_text', message.text)
-    bot.send_message(message.chat.id, f"✅ Помощь обновлена!")
-
-def set_image(message, image_key):
-    if message.text and message.text.lower() == 'отмена':
-        bot.send_message(message.chat.id, "❌ Отменено")
+        user = get_user(uid)
+        text = f"{STORY_TEXT}\n\n💰 Баланс: ${user['money']:,.2f}\n🏆 Кубков: {user.get('cubes', 0)}\n\n📆 День: {user['day']}"
+        bot.edit_message_media(types.InputMediaPhoto(IMAGES['main'], caption=text, parse_mode="Markdown"), call.message.chat.id, call.message.message_id, reply_markup=main_kb())
+        bot.answer_callback_query(call.id)
         return
     
+    # Админ-панель
+    if data == "admin_panel":
+        if uid != ADMIN_ID:
+            bot.answer_callback_query(call.id, "❌ Недостаточно прав")
+            return
+        text = "🔧 *Админ-панель*\n\nВыберите действие:"
+        bot.edit_message_media(types.InputMediaPhoto(IMAGES['main'], caption=text, parse_mode="Markdown"), call.message.chat.id, call.message.message_id, reply_markup=admin_kb())
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "admin_texts":
+        if uid != ADMIN_ID:
+            bot.answer_callback_query(call.id, "❌ Недостаточно прав")
+            return
+        bot.edit_message_caption(call.message.chat.id, call.message.message_id, caption="📝 *Редактирование текстов*", parse_mode="Markdown", reply_markup=admin_texts_kb())
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "edit_story":
+        if uid != ADMIN_ID:
+            bot.answer_callback_query(call.id, "❌ Недостаточно прав")
+            return
+        bot.send_message(uid, "📝 Отправьте новый текст истории (предыстории):")
+        bot.register_next_step_handler(call.message, set_story)
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "edit_help":
+        if uid != ADMIN_ID:
+            bot.answer_callback_query(call.id, "❌ Недостаточно прав")
+            return
+        bot.send_message(uid, "❓ Отправьте новый текст помощи:")
+        bot.register_next_step_handler(call.message, set_help)
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "admin_images":
+        if uid != ADMIN_ID:
+            bot.answer_callback_query(call.id, "❌ Недостаточно прав")
+            return
+        bot.edit_message_caption(call.message.chat.id, call.message.message_id, caption="🖼️ *Редактирование фото*", parse_mode="Markdown", reply_markup=admin_images_kb())
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data.startswith("edit_img_"):
+        if uid != ADMIN_ID:
+            bot.answer_callback_query(call.id, "❌ Недостаточно прав")
+            return
+        key = data[9:]
+        bot.send_message(uid, f"🖼️ Отправьте новое фото для раздела '{key}':")
+        bot.register_next_step_handler(call.message, set_image, key)
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "admin_settings":
+        if uid != ADMIN_ID:
+            bot.answer_callback_query(call.id, "❌ Недостаточно прав")
+            return
+        bot.edit_message_caption(call.message.chat.id, call.message.message_id, caption="⚙️ *Настройки игры*", parse_mode="Markdown", reply_markup=admin_settings_kb())
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "set_start_money":
+        if uid != ADMIN_ID:
+            bot.answer_callback_query(call.id, "❌ Недостаточно прав")
+            return
+        bot.send_message(uid, f"💰 Текущий стартовый капитал: ${get_setting('start_money')}\n\nВведите новое значение:")
+        bot.register_next_step_handler(call.message, set_start_money)
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "set_price_range":
+        if uid != ADMIN_ID:
+            bot.answer_callback_query(call.id, "❌ Недостаточно прав")
+            return
+        minv = get_setting('price_change_min') * 100
+        maxv = get_setting('price_change_max') * 100
+        bot.send_message(uid, f"📈 Текущий диапазон: от {minv}% до {maxv}%\n\nВведите в формате: МИН МАКС\nПример: -10 10")
+        bot.register_next_step_handler(call.message, set_price_range)
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "set_random_bonus":
+        if uid != ADMIN_ID:
+            bot.answer_callback_query(call.id, "❌ Недостаточно прав")
+            return
+        minv = get_setting('random_bonus_min')
+        maxv = get_setting('random_bonus_max')
+        bot.send_message(uid, f"🎲 Текущий диапазон: от ${minv} до ${maxv}\n\nВведите в формате: МИН МАКС\nПример: 50 500")
+        bot.register_next_step_handler(call.message, set_random_bonus)
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "set_lucky_box":
+        if uid != ADMIN_ID:
+            bot.answer_callback_query(call.id, "❌ Недостаточно прав")
+            return
+        minv = get_setting('lucky_box_money_min')
+        maxv = get_setting('lucky_box_money_max')
+        bot.send_message(uid, f"🎁 Текущий диапазон: от ${minv} до ${maxv}\n\nВведите в формате: МИН МАКС\nПример: 100 1000")
+        bot.register_next_step_handler(call.message, set_lucky_box)
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "set_sub_bonus":
+        if uid != ADMIN_ID:
+            bot.answer_callback_query(call.id, "❌ Недостаточно прав")
+            return
+        vip = get_setting('vip_bonus')
+        trader = get_setting('trader_bonus')
+        inv = get_setting('investor_bonus')
+        bot.send_message(uid, f"💎 Текущие бонусы:\nVIP: +{vip}%\nТрейдер: +{trader}%\nИнвестор: +{inv}%\n\nВведите в формате: VIP ТРЕЙДЕР ИНВЕСТОР\nПример: 10 15 20")
+        bot.register_next_step_handler(call.message, set_sub_bonus)
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "admin_users":
+        if uid != ADMIN_ID:
+            bot.answer_callback_query(call.id, "❌ Недостаточно прав")
+            return
+        bot.edit_message_caption(call.message.chat.id, call.message.message_id, caption="👥 *Управление пользователями*", parse_mode="Markdown", reply_markup=admin_users_kb())
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "user_list":
+        if uid != ADMIN_ID:
+            bot.answer_callback_query(call.id, "❌ Недостаточно прав")
+            return
+        users = []
+        for f in os.listdir(USERS_DIR):
+            if f.endswith('.json'):
+                uid_u = int(f[:-5])
+                u = get_user(uid_u)
+                if u:
+                    users.append(f"{uid_u} - {u.get('username', 'Unknown')} - ${u['money']:,.2f}")
+        text = "📋 *Список пользователей*\n\n" + "\n".join(users[:30])
+        bot.send_message(uid, text, parse_mode="Markdown")
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "user_find":
+        if uid != ADMIN_ID:
+            bot.answer_callback_query(call.id, "❌ Недостаточно прав")
+            return
+        bot.send_message(uid, "🔍 Введите ID или username:")
+        bot.register_next_step_handler(call.message, find_user)
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "user_ban":
+        if uid != ADMIN_ID:
+            bot.answer_callback_query(call.id, "❌ Недостаточно прав")
+            return
+        bot.send_message(uid, "🚫 Введите ID пользователя для бана:")
+        bot.register_next_step_handler(call.message, ban_user_cmd)
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "user_unban":
+        if uid != ADMIN_ID:
+            bot.answer_callback_query(call.id, "❌ Недостаточно прав")
+            return
+        bot.send_message(uid, "✅ Введите ID пользователя для разбана:")
+        bot.register_next_step_handler(call.message, unban_user_cmd)
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "user_give":
+        if uid != ADMIN_ID:
+            bot.answer_callback_query(call.id, "❌ Недостаточно прав")
+            return
+        bot.send_message(uid, "💰 Введите ID и сумму через пробел:\nПример: 123456789 1000")
+        bot.register_next_step_handler(call.message, give_money)
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "user_item":
+        if uid != ADMIN_ID:
+            bot.answer_callback_query(call.id, "❌ Недостаточно прав")
+            return
+        bot.send_message(uid, "📦 Введите ID и ID предмета:\nДоступные: booster, shield, analyst, random, lucky_box\nПример: 123456789 booster")
+        bot.register_next_step_handler(call.message, give_item)
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "admin_promos":
+        if uid != ADMIN_ID:
+            bot.answer_callback_query(call.id, "❌ Недостаточно прав")
+            return
+        promos = load_promos()
+        text = "🎟️ *ПРОМОКОДЫ*\n\n"
+        for code, d in promos.items():
+            text += f"`{code}` — +${d['bonus']} — {d['used_count']}/{d['max_uses']}\n"
+        text += "\n/addpromo КОД БОНУС МАКС\n/delpromo КОД"
+        bot.send_message(uid, text, parse_mode="Markdown")
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "admin_companies":
+        if uid != ADMIN_ID:
+            bot.answer_callback_query(call.id, "❌ Недостаточно прав")
+            return
+        comps = load_companies()
+        text = "🏢 *КОМПАНИИ*\n\n"
+        for t, d in list(comps.items())[:20]:
+            text += f"{t} — {d['name']} — ${d['price']:,.2f}\n"
+        text += "\n/editprice ТИКЕР ЦЕНА\n/addcompany ТИКЕР НАЗВАНИЕ ЦЕНА"
+        bot.send_message(uid, text, parse_mode="Markdown")
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "admin_stats":
+        if uid != ADMIN_ID:
+            bot.answer_callback_query(call.id, "❌ Недостаточно прав")
+            return
+        total = len([f for f in os.listdir(USERS_DIR) if f.endswith('.json')])
+        banned = len(load_banned())
+        comps = len(load_companies())
+        promos = len(load_promos())
+        text = f"📊 *СТАТИСТИКА*\n\n👥 Игроков: {total}\n🚫 Забанено: {banned}\n🏢 Компаний: {comps}\n🎟️ Промокодов: {promos}"
+        bot.send_message(uid, text, parse_mode="Markdown")
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "admin_season":
+        if uid != ADMIN_ID:
+            bot.answer_callback_query(call.id, "❌ Недостаточно прав")
+            return
+        s = get_season()
+        text = f"🏆 *СЕЗОН*\n\nНазвание: {s['name']}\nАктивен: {'✅' if s['active'] else '❌'}\nНачало: {s['start'][:10]}\nКонец: {s['end'][:10]}\n\n/createseason НАЗВАНИЕ ДНЕЙ\n/endseason"
+        bot.send_message(uid, text, parse_mode="Markdown")
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "admin_items":
+        if uid != ADMIN_ID:
+            bot.answer_callback_query(call.id, "❌ Недостаточно прав")
+            return
+        text = "📦 *ПРЕДМЕТЫ*\n\n"
+        for iid, item in SHOP_ITEMS.items():
+            text += f"{item['emoji']} {item['name']} — ${item['price']}\n"
+        text += "\n/edititemprice ID ЦЕНА"
+        bot.send_message(uid, text, parse_mode="Markdown")
+        bot.answer_callback_query(call.id)
+        return
+    
+    # Остальные колбэки
+    if data == "status":
+        if is_banned(uid):
+            bot.answer_callback_query(call.id, "🚫 Вы забанены!")
+            return
+        user = get_user(uid)
+        cap = calculate_capital(uid)
+        text = f"📊 СТАТИСТИКА (День {user['day']})\n\n💰 Баланс: ${user['money']:,.2f}\n💵 Капитал: ${cap:,.2f}\n🏆 Кубков: {user.get('cubes', 0)}\n"
+        if user.get('shields', 0) > 0:
+            text += f"🛡️ Страховок: {user['shields']}\n"
+        text += "\n📋 Портфель:\n"
+        for t, a in user.get('portfolio', {}).items():
+            comps = load_companies()
+            if t in comps:
+                text += f"{t}: {a} шт. (${a * comps[t]['price']:,.2f})\n"
+        bot.edit_message_media(types.InputMediaPhoto(IMAGES['stats'], caption=text), call.message.chat.id, call.message.message_id, reply_markup=back_kb("back_to_main"))
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "list":
+        if is_banned(uid):
+            bot.answer_callback_query(call.id, "🚫 Вы забанены!")
+            return
+        user = get_user(uid)
+        items, total = get_companies_page(1)
+        pages = (total + 9) // 10
+        text = f"📋 КОМПАНИИ (День {user['day']})\n\n"
+        for t, d in items:
+            change = get_price_change(d.get('prev_price', d['price']), d['price'])
+            emoji = "🟢" if change.startswith('+') else "🔴" if change.startswith('-') else "⚪"
+            text += f"{t} — {d['name']}\n💰 ${d['price']:,.2f} {emoji} {change}\n\n"
+        bot.edit_message_media(types.InputMediaPhoto(IMAGES['companies'], caption=text), call.message.chat.id, call.message.message_id, reply_markup=companies_kb(1, pages))
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "next":
+        if is_banned(uid):
+            bot.answer_callback_query(call.id, "🚫 Вы забанены!")
+            return
+        update_prices()
+        user = get_user(uid)
+        user['day'] += 1
+        save_user(uid, user)
+        update_leaderboard()
+        text = f"{STORY_TEXT}\n\n💰 Баланс: ${user['money']:,.2f}\n🏆 Кубков: {user.get('cubes', 0)}\n\n📆 День: {user['day']}"
+        bot.edit_message_media(types.InputMediaPhoto(IMAGES['main'], caption=text, parse_mode="Markdown"), call.message.chat.id, call.message.message_id, reply_markup=main_kb())
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "leaderboard":
+        if is_banned(uid):
+            bot.answer_callback_query(call.id, "🚫 Вы забанены!")
+            return
+        lb = get_leaderboard(10)
+        text = "🏆 ТАБЛИЦА ЛИДЕРОВ\n\n"
+        for i, e in enumerate(lb, 1):
+            medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
+            text += f"{medal} {e['username'][:15]} — ${e['capital']:,.2f} (🏆 {e['cubes']})\n"
+        bot.edit_message_media(types.InputMediaPhoto(IMAGES['leaderboard'], caption=text), call.message.chat.id, call.message.message_id, reply_markup=back_kb("back_to_main"))
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "shop":
+        if is_banned(uid):
+            bot.answer_callback_query(call.id, "🚫 Вы забанены!")
+            return
+        bot.edit_message_media(types.InputMediaPhoto(IMAGES['shop'], caption="🛒 МАГАЗИН\n\nВыбери категорию:"), call.message.chat.id, call.message.message_id, reply_markup=shop_kb())
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "inventory":
+        if is_banned(uid):
+            bot.answer_callback_query(call.id, "🚫 Вы забанены!")
+            return
+        user = get_user(uid)
+        text = "🎒 ИНВЕНТАРЬ\n\n"
+        for i, item in enumerate(user.get('inventory', []), 1):
+            text += f"{i}. {item['emoji']} {item['name']}\n"
+        if not user.get('inventory'):
+            text += "Пусто\n"
+        text += f"\n🏆 Кубков: {user.get('cubes', 0)}"
+        bot.edit_message_media(types.InputMediaPhoto(IMAGES['inventory'], caption=text), call.message.chat.id, call.message.message_id, reply_markup=inventory_kb(user))
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "promo":
+        if is_banned(uid):
+            bot.answer_callback_query(call.id, "🚫 Вы забанены!")
+            return
+        promos = load_promos()
+        text = "🎟️ ПРОМОКОДЫ\n\n"
+        for code, d in promos.items():
+            rem = d['max_uses'] - d['used_count']
+            text += f"`{code}` — +${d['bonus']} (осталось {rem})\n"
+        bot.edit_message_caption(call.message.chat.id, call.message.message_id, caption=text, parse_mode="Markdown", reply_markup=back_kb("back_to_main"))
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "help":
+        if is_banned(uid):
+            bot.answer_callback_query(call.id, "🚫 Вы забанены!")
+            return
+        bot.edit_message_caption(call.message.chat.id, call.message.message_id, caption=HELP_TEXT, parse_mode="Markdown", reply_markup=back_kb("back_to_main"))
+        bot.answer_callback_query(call.id)
+        return
+    
+    # Категории магазина
+    if data.startswith("cat_"):
+        cat = data[4:]
+        bot.edit_message_media(types.InputMediaPhoto(IMAGES['shop'], caption=f"🛒 {cat.upper()}"), call.message.chat.id, call.message.message_id, reply_markup=shop_category_kb(cat))
+        bot.answer_callback_query(call.id)
+        return
+    
+    # Покупка предмета
+    if data.startswith("buy_"):
+        if is_banned(uid):
+            bot.answer_callback_query(call.id, "🚫 Вы забанены!")
+            return
+        item_id = data[4:]
+        ok, msg = buy_item(uid, item_id)
+        bot.answer_callback_query(call.id, msg, show_alert=True)
+        if ok:
+            bot.edit_message_media(types.InputMediaPhoto(IMAGES['shop'], caption="🛒 МАГАЗИН\n\nВыбери категорию:"), call.message.chat.id, call.message.message_id, reply_markup=shop_kb())
+        return
+    
+    # Использование предмета
+    if data.startswith("use_"):
+        if is_banned(uid):
+            bot.answer_callback_query(call.id, "🚫 Вы забанены!")
+            return
+        idx = int(data[4:])
+        ok, msg, _ = use_item(uid, idx)
+        bot.answer_callback_query(call.id, msg, show_alert=True)
+        if ok:
+            user = get_user(uid)
+            text = "🎒 ИНВЕНТАРЬ\n\n"
+            for i, item in enumerate(user.get('inventory', []), 1):
+                text += f"{i}. {item['emoji']} {item['name']}\n"
+            if not user.get('inventory'):
+                text += "Пусто\n"
+            text += f"\n🏆 Кубков: {user.get('cubes', 0)}"
+            bot.edit_message_media(types.InputMediaPhoto(IMAGES['inventory'], caption=text), call.message.chat.id, call.message.message_id, reply_markup=inventory_kb(user))
+        return
+    
+    # Пагинация компаний
+    if data.startswith("page_"):
+        if is_banned(uid):
+            bot.answer_callback_query(call.id, "🚫 Вы забанены!")
+            return
+        page = int(data[5:])
+        user = get_user(uid)
+        items, total = get_companies_page(page)
+        pages = (total + 9) // 10
+        text = f"📋 КОМПАНИИ (День {user['day']})\n\n"
+        for t, d in items:
+            change = get_price_change(d.get('prev_price', d['price']), d['price'])
+            emoji = "🟢" if change.startswith('+') else "🔴" if change.startswith('-') else "⚪"
+            text += f"{t} — {d['name']}\n💰 ${d['price']:,.2f} {emoji} {change}\n\n"
+        bot.edit_message_media(types.InputMediaPhoto(IMAGES['companies'], caption=text), call.message.chat.id, call.message.message_id, reply_markup=companies_kb(page, pages))
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data == "refresh":
+        if is_banned(uid):
+            bot.answer_callback_query(call.id, "🚫 Вы забанены!")
+            return
+        user = get_user(uid)
+        items, total = get_companies_page(1)
+        pages = (total + 9) // 10
+        text = f"📋 КОМПАНИИ (День {user['day']})\n\n"
+        for t, d in items:
+            change = get_price_change(d.get('prev_price', d['price']), d['price'])
+            emoji = "🟢" if change.startswith('+') else "🔴" if change.startswith('-') else "⚪"
+            text += f"{t} — {d['name']}\n💰 ${d['price']:,.2f} {emoji} {change}\n\n"
+        bot.edit_message_media(types.InputMediaPhoto(IMAGES['companies'], caption=text), call.message.chat.id, call.message.message_id, reply_markup=companies_kb(1, pages))
+        bot.answer_callback_query(call.id, "🔄 Обновлено")
+        return
+    
+    if data == "noop":
+        bot.answer_callback_query(call.id)
+        return
+
+# ========== ОБРАБОТЧИКИ ДЛЯ АДМИНА ==========
+def set_story(message):
+    if message.text:
+        global STORY_TEXT
+        STORY_TEXT = message.text
+        bot.send_message(message.chat.id, "✅ История обновлена!")
+
+def set_help(message):
+    if message.text:
+        global HELP_TEXT
+        HELP_TEXT = message.text
+        bot.send_message(message.chat.id, "✅ Помощь обновлена!")
+
+def set_image(message, key):
     if message.photo:
-        file_id = message.photo[-1].file_id
-        IMAGES[image_key] = file_id
-        bot.send_message(message.chat.id, f"✅ Фото для '{image_key}' обновлено!")
-    else:
-        bot.send_message(message.chat.id, "❌ Отправьте фото!")
+        IMAGES[key] = message.photo[-1].file_id
+        bot.send_message(message.chat.id, f"✅ Фото для '{key}' обновлено!")
 
 def set_start_money(message):
-    if message.text.lower() == 'отмена':
-        bot.send_message(message.chat.id, "❌ Отменено")
-        return
     try:
-        value = float(message.text)
-        update_setting('start_money', value)
-        bot.send_message(message.chat.id, f"✅ Стартовый капитал установлен: ${value}")
+        val = float(message.text)
+        update_setting('start_money', val)
+        bot.send_message(message.chat.id, f"✅ Стартовый капитал: ${val}")
     except:
         bot.send_message(message.chat.id, "❌ Введите число!")
 
 def set_price_range(message):
-    if message.text.lower() == 'отмена':
-        bot.send_message(message.chat.id, "❌ Отменено")
-        return
     try:
-        min_val, max_val = map(float, message.text.split())
-        update_setting('price_change_min', min_val)
-        update_setting('price_change_max', max_val)
-        bot.send_message(message.chat.id, f"✅ Диапазон изменения цен: от {min_val*100}% до {max_val*100}%")
+        minv, maxv = map(float, message.text.split())
+        update_setting('price_change_min', minv / 100)
+        update_setting('price_change_max', maxv / 100)
+        bot.send_message(message.chat.id, f"✅ Диапазон цен: от {minv}% до {maxv}%")
     except:
-        bot.send_message(message.chat.id, "❌ Введите два числа через пробел!")
+        bot.send_message(message.chat.id, "❌ Введите два числа!")
 
 def set_random_bonus(message):
-    if message.text.lower() == 'отмена':
-        bot.send_message(message.chat.id, "❌ Отменено")
-        return
     try:
-        min_val, max_val = map(int, message.text.split())
-        update_setting('random_bonus_min', min_val)
-        update_setting('random_bonus_max', max_val)
-        bot.send_message(message.chat.id, f"✅ Случайный бонус: от ${min_val} до ${max_val}")
+        minv, maxv = map(int, message.text.split())
+        update_setting('random_bonus_min', minv)
+        update_setting('random_bonus_max', maxv)
+        bot.send_message(message.chat.id, f"✅ Случайный бонус: от ${minv} до ${maxv}")
     except:
-        bot.send_message(message.chat.id, "❌ Введите два числа через пробел!")
+        bot.send_message(message.chat.id, "❌ Введите два числа!")
 
 def set_lucky_box(message):
-    if message.text.lower() == 'отмена':
-        bot.send_message(message.chat.id, "❌ Отменено")
-        return
     try:
-        min_val, max_val = map(int, message.text.split())
-        update_setting('lucky_box_money_min', min_val)
-        update_setting('lucky_box_money_max', max_val)
-        bot.send_message(message.chat.id, f"✅ Лаки бокс: от ${min_val} до ${max_val}")
+        minv, maxv = map(int, message.text.split())
+        update_setting('lucky_box_money_min', minv)
+        update_setting('lucky_box_money_max', maxv)
+        bot.send_message(message.chat.id, f"✅ Лаки бокс: от ${minv} до ${maxv}")
     except:
-        bot.send_message(message.chat.id, "❌ Введите два числа через пробел!")
+        bot.send_message(message.chat.id, "❌ Введите два числа!")
 
-def set_subscription_bonus(message):
-    if message.text.lower() == 'отмена':
-        bot.send_message(message.chat.id, "❌ Отменено")
-        return
+def set_sub_bonus(message):
     try:
-        vip, trader, investor = map(int, message.text.split())
+        vip, trader, inv = map(int, message.text.split())
         update_setting('vip_bonus', vip)
         update_setting('trader_bonus', trader)
-        update_setting('investor_bonus', investor)
-        bot.send_message(message.chat.id, f"✅ Бонусы подписок:\nVIP: +{vip}%\nТрейдер PRO: +{trader}%\nИнвестор: +{investor}%")
+        update_setting('investor_bonus', inv)
+        bot.send_message(message.chat.id, f"✅ Бонусы: VIP +{vip}%, Трейдер +{trader}%, Инвестор +{inv}%")
     except:
-        bot.send_message(message.chat.id, "❌ Введите три числа через пробел!")
+        bot.send_message(message.chat.id, "❌ Введите три числа!")
+
+def find_user(message):
+    search = message.text.lower()
+    found = []
+    for f in os.listdir(USERS_DIR):
+        if f.endswith('.json'):
+            uid_u = int(f[:-5])
+            u = get_user(uid_u)
+            if u:
+                if search in str(uid_u) or (u.get('username') and search in u['username'].lower()):
+                    found.append(f"ID: {uid_u}\nUsername: {u.get('username', 'Unknown')}\n💰 ${u['money']:,.2f}\n")
+    if found:
+        bot.send_message(message.chat.id, "\n".join(found[:10]))
+    else:
+        bot.send_message(message.chat.id, "❌ Не найдено")
 
 def ban_user_cmd(message):
-    if message.text.lower() == 'отмена':
-        bot.send_message(message.chat.id, "❌ Отменено")
-        return
     try:
-        uid = int(message.text)
-        ban_user(uid)
-        bot.send_message(message.chat.id, f"✅ Пользователь {uid} забанен!")
+        uid_u = int(message.text)
+        ban_user(uid_u)
+        bot.send_message(message.chat.id, f"✅ Пользователь {uid_u} забанен!")
     except:
         bot.send_message(message.chat.id, "❌ Введите ID!")
 
 def unban_user_cmd(message):
-    if message.text.lower() == 'отмена':
-        bot.send_message(message.chat.id, "❌ Отменено")
-        return
     try:
-        uid = int(message.text)
-        unban_user(uid)
-        bot.send_message(message.chat.id, f"✅ Пользователь {uid} разбанен!")
+        uid_u = int(message.text)
+        unban_user(uid_u)
+        bot.send_message(message.chat.id, f"✅ Пользователь {uid_u} разбанен!")
     except:
         bot.send_message(message.chat.id, "❌ Введите ID!")
 
-def give_money_cmd(message):
-    if message.text.lower() == 'отмена':
-        bot.send_message(message.chat.id, "❌ Отменено")
-        return
+def give_money(message):
     try:
         parts = message.text.split()
-        uid = int(parts[0])
-        amount = float(parts[1])
-        user = get_user(uid)
-        if user:
-            user['money'] += amount
-            save_user(uid, user)
+        uid_u = int(parts[0])
+        amt = float(parts[1])
+        u = get_user(uid_u)
+        if u:
+            u['money'] += amt
+            save_user(uid_u, u)
             update_leaderboard()
-            bot.send_message(message.chat.id, f"✅ Выдано ${amount:,.2f} пользователю {uid}")
+            bot.send_message(message.chat.id, f"✅ Выдано ${amt:,.2f} пользователю {uid_u}")
         else:
             bot.send_message(message.chat.id, "❌ Пользователь не найден")
     except:
         bot.send_message(message.chat.id, "❌ Введите ID и сумму!")
 
-def give_item_cmd(message):
-    if message.text.lower() == 'отмена':
-        bot.send_message(message.chat.id, "❌ Отменено")
-        return
+def give_item(message):
     try:
         parts = message.text.split()
-        uid = int(parts[0])
+        uid_u = int(parts[0])
         item_id = parts[1]
-        
         if item_id not in SHOP_ITEMS:
-            bot.send_message(message.chat.id, "❌ Предмет не найден!")
+            bot.send_message(message.chat.id, "❌ Предмет не найден")
             return
-        
-        user = get_user(uid)
-        if user:
+        u = get_user(uid_u)
+        if u:
             item = SHOP_ITEMS[item_id]
-            user['inventory'].append({
+            u['inventory'].append({
                 'item_id': item_id,
                 'name': item['name'],
                 'emoji': item['emoji'],
                 'description': item['description'],
                 'category': item['category'],
-                'effect': item.get('effect', 'none')
+                'effect': item['effect']
             })
-            save_user(uid, user)
-            bot.send_message(message.chat.id, f"✅ Выдан предмет {item['emoji']} {item['name']} пользователю {uid}")
+            save_user(uid_u, u)
+            bot.send_message(message.chat.id, f"✅ Выдан {item['emoji']} {item['name']} пользователю {uid_u}")
         else:
             bot.send_message(message.chat.id, "❌ Пользователь не найден")
     except:
         bot.send_message(message.chat.id, "❌ Введите ID и ID предмета!")
 
-def find_user_cmd(message):
-    if message.text.lower() == 'отмена':
-        bot.send_message(message.chat.id, "❌ Отменено")
-        return
-    
-    search = message.text.lower()
-    found = []
-    
-    for f in os.listdir(USERS_DIR):
-        if f.endswith('.json'):
-            uid = int(f[:-5])
-            user = get_user(uid)
-            if user:
-                username = user.get('username', '').lower()
-                if search in str(uid) or search in username:
-                    cap = calculate_capital(uid)
-                    found.append(f"ID: {uid}\nUsername: {user.get('username', 'Unknown')}\n💰 Баланс: ${user['money']:,.2f}\n💵 Капитал: ${cap:,.2f}\n🏆 Кубков: {user.get('cubes',0)}\n")
-    
-    if found:
-        bot.send_message(message.chat.id, "\n".join(found[:10]))
-    else:
-        bot.send_message(message.chat.id, "❌ Пользователь не найден")
-
 # ========== АДМИН-КОМАНДЫ ==========
 @bot.message_handler(commands=['addpromo'])
-def admin_add_promo(m):
+def add_promo_cmd(m):
     if m.from_user.id != ADMIN_ID:
         return
     try:
         _, code, bonus, mu = m.text.split()
-        if add_promocode(code, int(bonus), int(mu)):
+        if add_promo(code, int(bonus), int(mu)):
             bot.reply_to(m, f"✅ Промокод {code} добавлен")
         else:
             bot.reply_to(m, "❌ Уже существует")
@@ -1500,39 +1358,39 @@ def admin_add_promo(m):
         bot.reply_to(m, "❌ /addpromo КОД БОНУС МАКС")
 
 @bot.message_handler(commands=['delpromo'])
-def admin_del_promo(m):
+def del_promo_cmd(m):
     if m.from_user.id != ADMIN_ID:
         return
     try:
-        code = m.text.split()[1].upper()
-        if delete_promocode(code):
-            bot.reply_to(m, f"✅ Промокод {code} удалён")
+        code = m.text.split()[1]
+        if del_promo(code):
+            bot.reply_to(m, f"✅ Промокод {code} удален")
         else:
             bot.reply_to(m, "❌ Не найден")
     except:
         bot.reply_to(m, "❌ /delpromo КОД")
 
 @bot.message_handler(commands=['editprice'])
-def admin_edit_price(m):
+def edit_price_cmd(m):
     if m.from_user.id != ADMIN_ID:
         return
     try:
         _, ticker, price = m.text.split()
         ticker = ticker.upper()
         price = float(price)
-        companies = load_companies()
-        if ticker in companies:
-            companies[ticker]['price'] = price
-            companies[ticker]['prev_price'] = price
-            save_companies(companies)
-            bot.reply_to(m, f"✅ {ticker} цена установлена: ${price}")
+        comps = load_companies()
+        if ticker in comps:
+            comps[ticker]['price'] = price
+            comps[ticker]['prev_price'] = price
+            save_companies(comps)
+            bot.reply_to(m, f"✅ {ticker} цена: ${price}")
         else:
             bot.reply_to(m, "❌ Компания не найдена")
     except:
         bot.reply_to(m, "❌ /editprice AAPL 175.50")
 
 @bot.message_handler(commands=['addcompany'])
-def admin_add_company(m):
+def add_company_cmd(m):
     if m.from_user.id != ADMIN_ID:
         return
     try:
@@ -1540,15 +1398,15 @@ def admin_add_company(m):
         ticker = parts[1].upper()
         name = parts[2]
         price = float(parts[3])
-        companies = load_companies()
-        companies[ticker] = {'name': name, 'price': price, 'prev_price': price}
-        save_companies(companies)
+        comps = load_companies()
+        comps[ticker] = {'name': name, 'price': price, 'prev_price': price}
+        save_companies(comps)
         bot.reply_to(m, f"✅ Компания {ticker} добавлена")
     except:
-        bot.reply_to(m, "❌ /addcompany TICKER NAME PRICE")
+        bot.reply_to(m, "❌ /addcompany AAPL Apple 175.50")
 
 @bot.message_handler(commands=['edititemprice'])
-def admin_edit_item_price(m):
+def edit_item_price_cmd(m):
     if m.from_user.id != ADMIN_ID:
         return
     try:
@@ -1560,10 +1418,10 @@ def admin_edit_item_price(m):
         else:
             bot.reply_to(m, "❌ Предмет не найден")
     except:
-        bot.reply_to(m, "❌ /edititemprice item_id 500")
+        bot.reply_to(m, "❌ /edititemprice booster 500")
 
 @bot.message_handler(commands=['createseason'])
-def admin_create_season(m):
+def create_season_cmd(m):
     if m.from_user.id != ADMIN_ID:
         return
     try:
@@ -1571,55 +1429,26 @@ def admin_create_season(m):
         create_season(name, int(days))
         bot.reply_to(m, f"✅ Сезон '{name}' на {days} дней")
     except:
-        bot.reply_to(m, "❌ /createseason НАЗВАНИЕ ДНЕЙ")
+        bot.reply_to(m, "❌ /createseason ВЕСНА 14")
 
 @bot.message_handler(commands=['endseason'])
-def admin_end_season(m):
+def end_season_cmd(m):
     if m.from_user.id != ADMIN_ID:
         return
     ok, msg = end_season()
     bot.reply_to(m, msg)
 
-@bot.message_handler(commands=['adminhelp'])
-def admin_help(m):
+@bot.message_handler(commands=['addleader'])
+def add_leader_cmd(m):
     if m.from_user.id != ADMIN_ID:
         return
-    text = """
-🔧 *АДМИН-КОМАНДЫ*
-
-*Основные:*
-/admin - открыть админ-панель
-/addleader - обновить таблицу лидеров
-
-*Промокоды:*
-/addpromo КОД БОНУС МАКС - создать
-/delpromo КОД - удалить
-
-*Компании:*
-/editprice ТИКЕР ЦЕНА - изменить цену
-/addcompany ТИКЕР НАЗВАНИЕ ЦЕНА - добавить
-
-*Предметы:*
-/edititemprice ID ЦЕНА - изменить цену
-
-*Сезоны:*
-/createseason НАЗВАНИЕ ДНЕЙ - создать
-/endseason - завершить
-
-*Старые команды:*
-/admingive ID СУММА
-/admintake ID СУММА
-/adminreset ID
-/adminstats
-/admintop
-"""
-    bot.reply_to(m, text, parse_mode="Markdown")
+    update_leaderboard()
+    bot.reply_to(m, "✅ Таблица лидеров обновлена")
 
 # ========== ЗАПУСК ==========
 if __name__ == "__main__":
-    print("🤖 Terminal Trade запущен")
-    print("✅ Админ-панель добавлена")
-    print("✅ Настройки сохранены в settings.json")
-    print("✅ Система банов добавлена")
-    print("✅ Бот работает в чатах и ЛС")
+    print("🤖 Terminal Trade запущен!")
+    print("✅ Админ-панель: /admin")
+    print(f"✅ Админ ID: {ADMIN_ID}")
+    print("✅ Бот готов к работе!")
     bot.infinity_polling()
