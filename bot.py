@@ -1,5 +1,6 @@
 import telebot
 import random
+import sqlite3
 from datetime import datetime
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -7,6 +8,49 @@ TOKEN = "8740420404:AAHli4wJgrgiAKtXeAC7GreL-rtyc2OwMgo"
 ADMIN_ID = 7040677455
 
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
+
+# ========== БД ДЛЯ КЛИКЕРА ==========
+def init_db():
+    conn = sqlite3.connect("clicker.db")
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS clicks (
+        user_id INTEGER PRIMARY KEY,
+        clicks INTEGER DEFAULT 0,
+        username TEXT
+    )''')
+    conn.commit()
+    conn.close()
+
+def add_click(user_id, username):
+    conn = sqlite3.connect("clicker.db")
+    c = conn.cursor()
+    c.execute("SELECT clicks FROM clicks WHERE user_id = ?", (user_id,))
+    row = c.fetchone()
+    if row:
+        new_clicks = row[0] + 1
+        c.execute("UPDATE clicks SET clicks = ?, username = ? WHERE user_id = ?", (new_clicks, username, user_id))
+    else:
+        new_clicks = 1
+        c.execute("INSERT INTO clicks (user_id, clicks, username) VALUES (?, ?, ?)", (user_id, new_clicks, username))
+    conn.commit()
+    conn.close()
+    return new_clicks
+
+def get_top_clicks(limit=10):
+    conn = sqlite3.connect("clicker.db")
+    c = conn.cursor()
+    c.execute("SELECT user_id, clicks, username FROM clicks ORDER BY clicks DESC LIMIT ?", (limit,))
+    top = c.fetchall()
+    conn.close()
+    return top
+
+def get_user_clicks(user_id):
+    conn = sqlite3.connect("clicker.db")
+    c = conn.cursor()
+    c.execute("SELECT clicks FROM clicks WHERE user_id = ?", (user_id,))
+    row = c.fetchone()
+    conn.close()
+    return row[0] if row else 0
 
 # ========== ДАННЫЕ ==========
 start_date = "2024"
@@ -35,6 +79,7 @@ def main_menu(page=1):
             InlineKeyboardButton("😢 Мемы", callback_data="meme"),
             InlineKeyboardButton("🪦 Могила", callback_data="grave"),
             InlineKeyboardButton("🔫 Возрождение", callback_data="rebirth"),
+            InlineKeyboardButton("🖱️ Кликер", callback_data="clicker_menu"),
             InlineKeyboardButton("➡️ Далее", callback_data="menu_page_2")
         )
     elif page == 2:
@@ -45,6 +90,15 @@ def main_menu(page=1):
         )
     if ADMIN_ID:
         kb.add(InlineKeyboardButton("👑 Админ панель", callback_data="admin_panel"))
+    return kb
+
+def clicker_menu_kb():
+    kb = InlineKeyboardMarkup(row_width=2)
+    kb.add(
+        InlineKeyboardButton("🖱️ Кликнуть", callback_data="click"),
+        InlineKeyboardButton("🏆 Топ кликеров", callback_data="clicker_top"),
+        InlineKeyboardButton("🔙 Назад", callback_data="back_to_menu")
+    )
     return kb
 
 def admin_menu_kb():
@@ -60,6 +114,7 @@ def admin_menu_kb():
 # ========== КОМАНДЫ ==========
 @bot.message_handler(commands=['start'])
 def start_cmd(m):
+    init_db()
     bot.send_message(
         m.chat.id,
         f"🕯️ <b>TERMINAL TRADE</b> — ПЕРВЫЙ ПРОЕКТ\n\n"
@@ -75,6 +130,7 @@ def handle_callback(call):
     uid = call.from_user.id
     cid = call.message.chat.id
     mid = call.message.message_id
+    username = call.from_user.username or call.from_user.first_name
 
     # Навигация по меню
     if call.data == "menu_page_1":
@@ -159,6 +215,55 @@ def handle_callback(call):
         bot.answer_callback_query(call.id)
         return
 
+    # ========== КЛИКЕР ==========
+    if call.data == "clicker_menu":
+        clicks = get_user_clicks(uid)
+        text = (
+            "🖱️ <b>КЛИКЕР TERMINAL TRADE</b>\n\n"
+            "Нажимай на кнопку — зарабатывай очки памяти.\n"
+            "Чем больше кликов, тем выше ты в топе.\n\n"
+            f"📊 Твои клики: <b>{clicks}</b>\n\n"
+            "<i>Каждый клик — дань уважения первому проекту.</i>"
+        )
+        bot.edit_message_text(text, cid, mid, reply_markup=clicker_menu_kb())
+        bot.answer_callback_query(call.id)
+        return
+
+    if call.data == "click":
+        new_clicks = add_click(uid, username)
+        # Бонусные сообщения за достижения
+        bonus_msg = ""
+        if new_clicks == 10:
+            bonus_msg = "\n\n🎉 10 кликов! Ты помнишь Terminal Trade!"
+        elif new_clicks == 50:
+            bonus_msg = "\n\n🔥 50 кликов! Легенда не умирает!"
+        elif new_clicks == 100:
+            bonus_msg = "\n\n👑 100 кликов! Ты — настоящий фанат!"
+        elif new_clicks == 500:
+            bonus_msg = "\n\n💀 500 кликов! Ты достоин места в истории!"
+        
+        text = (
+            f"🖱️ <b>КЛИК!</b>\n\n"
+            f"Всего кликов: <b>{new_clicks}</b>{bonus_msg}\n\n"
+            f"<i>Память о Terminal Trade живёт в каждом клике.</i>"
+        )
+        bot.edit_message_text(text, cid, mid, reply_markup=clicker_menu_kb())
+        bot.answer_callback_query(call.id, "🖱️ +1 клик", show_alert=False)
+        return
+
+    if call.data == "clicker_top":
+        top = get_top_clicks(10)
+        if not top:
+            text = "🏆 <b>ТОП КЛИКЕРОВ</b>\n\nПока никого нет. Будь первым!"
+        else:
+            text = "🏆 <b>ТОП КЛИКЕРОВ</b>\n\n"
+            for i, (uid2, clicks, name) in enumerate(top, 1):
+                mention = f"@{name}" if name and name != "None" else f"<code>{uid2}</code>"
+                text += f"{i}. {mention} — {clicks} кликов\n"
+        bot.edit_message_text(text, cid, mid, reply_markup=InlineKeyboardMarkup().add(InlineKeyboardButton("🔙 Назад", callback_data="clicker_menu")))
+        bot.answer_callback_query(call.id)
+        return
+
     # ========== АДМИН-ПАНЕЛЬ ==========
     if call.data == "admin_panel":
         if uid != ADMIN_ID:
@@ -171,12 +276,19 @@ def handle_callback(call):
     if call.data == "admin_stats":
         if uid != ADMIN_ID:
             return
+        conn = sqlite3.connect("clicker.db")
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM clicks")
+        total_users_db = c.fetchone()[0]
+        c.execute("SELECT SUM(clicks) FROM clicks")
+        total_clicks = c.fetchone()[0] or 0
+        conn.close()
         text = (
-            "📊 <b>СТАТИСТИКА БОТА</b>\n\n"
-            f"🕯️ Terminal Trade Memorial Bot\n"
-            f"📅 Создан: 13.04.2026\n"
-            f"👥 Пользователей: (сбор данных...)\n"
-            f"🎮 Команд обработано: (сбор данных...)"
+            "📊 <b>СТАТИСТИКА КЛИКЕРА</b>\n\n"
+            f"👥 Участников кликера: {total_users_db}\n"
+            f"🖱️ Всего кликов: {total_clicks}\n\n"
+            "📅 Terminal Trade Memorial Bot\n"
+            "🕯️ Запущен: 13.04.2026"
         )
         bot.edit_message_text(text, cid, mid, reply_markup=InlineKeyboardMarkup().add(InlineKeyboardButton("🔙 Назад", callback_data="admin_panel")))
         bot.answer_callback_query(call.id)
@@ -208,7 +320,6 @@ def create_promo_handler(m, ocid, omid):
         reward_type = parts[1].lower()
         amount = int(parts[2])
         bot.send_message(m.chat.id, f"✅ Промокод {code} создан! (тип: {reward_type}, {amount})")
-        # Здесь можно сохранять в БД, если нужно
     except:
         bot.send_message(m.chat.id, "❌ Ошибка! Формат: КОД ТИП КОЛИЧЕСТВО")
     bot.edit_message_reply_markup(ocid, omid, reply_markup=admin_menu_kb())
@@ -217,12 +328,12 @@ def broadcast_handler(m, ocid, omid):
     if m.from_user.id != ADMIN_ID:
         return
     text = m.text
-    # Здесь нужна БД для рассылки, пока просто заглушка
     bot.send_message(m.chat.id, f"📢 Рассылка отправлена (в разработке)\n\nТекст: {text[:100]}")
     bot.edit_message_reply_markup(ocid, omid, reply_markup=admin_menu_kb())
 
 # ========== ЗАПУСК ==========
 if __name__ == "__main__":
-    print("✅ Terminal Trade Memorial Bot запущен!")
+    init_db()
+    print("✅ Terminal Trade Memorial Bot (с кликером) запущен!")
     print(f"👑 Admin ID: {ADMIN_ID}")
     bot.infinity_polling()
