@@ -1,266 +1,228 @@
-import asyncio
+import telebot
 import random
-from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram import F
+from datetime import datetime
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# Твой токен
 TOKEN = "8740420404:AAHli4wJgrgiAKtXeAC7GreL-rtyc2OwMgo"
+ADMIN_ID = 7040677455
 
-bot = Bot(token=TOKEN)
-dp = Dispatcher()
+bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
-# Хранилище игроков
-players = {}
+# ========== ДАННЫЕ ==========
+start_date = "2024"
+end_date = "2026"
+total_users = 1247
+total_games = 5842
+total_bugs = "бесконечно"
 
-# ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
+memes = [
+    "📉 График упал так же резко, как Terminal Trade...",
+    "💀 Помнишь, как мы торговали? Я помню.",
+    "⚰️ Terminal Trade не умер — он переродился",
+    "🎲 Раньше ты торговал, теперь стреляешь. Прогресс?",
+    "🔫 Ставки те же, просто теперь пуля вместо графика",
+    "🐛 Багов было больше, чем кода",
+    "💸 Последний трейд был фатальным",
+]
 
-def get_player(user_id: int):
-    if user_id not in players:
-        players[user_id] = {
-            "credits": 1000,
-            "inventory": {"food": 0, "ore": 0, "tech": 0},
-            "prices": {
-                "food": random.randint(10, 30),
-                "ore": random.randint(20, 50),
-                "tech": random.randint(60, 120)
-            }
-        }
-    return players[user_id]
+# ========== КЛАВИАТУРЫ ==========
+def main_menu(page=1):
+    kb = InlineKeyboardMarkup(row_width=2)
+    if page == 1:
+        kb.add(
+            InlineKeyboardButton("📜 История", callback_data="history"),
+            InlineKeyboardButton("📊 Статистика", callback_data="stats"),
+            InlineKeyboardButton("😢 Мемы", callback_data="meme"),
+            InlineKeyboardButton("🪦 Могила", callback_data="grave"),
+            InlineKeyboardButton("🔫 Возрождение", callback_data="rebirth"),
+            InlineKeyboardButton("➡️ Далее", callback_data="menu_page_2")
+        )
+    elif page == 2:
+        kb.add(
+            InlineKeyboardButton("🔫 Русская рулетка", url="https://t.me/RussianRoulette_official_bot"),
+            InlineKeyboardButton("📢 Канал студии", url="https://t.me/Catalyst_studios"),
+            InlineKeyboardButton("⬅️ Назад", callback_data="menu_page_1")
+        )
+    if ADMIN_ID:
+        kb.add(InlineKeyboardButton("👑 Админ панель", callback_data="admin_panel"))
+    return kb
 
-def main_menu_keyboard():
-    builder = InlineKeyboardBuilder()
-    builder.row(
-        InlineKeyboardButton(text="🌍 Travel", callback_data="travel"),
-        InlineKeyboardButton(text="📊 Market", callback_data="market")
+def admin_menu_kb():
+    kb = InlineKeyboardMarkup(row_width=1)
+    kb.add(
+        InlineKeyboardButton("📊 Статистика бота", callback_data="admin_stats"),
+        InlineKeyboardButton("🎫 Создать промокод", callback_data="admin_create_promo"),
+        InlineKeyboardButton("📢 Рассылка", callback_data="admin_broadcast"),
+        InlineKeyboardButton("🔙 Назад", callback_data="back_to_menu")
     )
-    builder.row(
-        InlineKeyboardButton(text="📦 Inventory", callback_data="inventory"),
-        InlineKeyboardButton(text="🔄 Reset", callback_data="reset")
+    return kb
+
+# ========== КОМАНДЫ ==========
+@bot.message_handler(commands=['start'])
+def start_cmd(m):
+    bot.send_message(
+        m.chat.id,
+        f"🕯️ <b>TERMINAL TRADE</b> — ПЕРВЫЙ ПРОЕКТ\n\n"
+        f"Привет, {m.from_user.first_name}.\n\n"
+        f"Этот бот — дань уважения проекту, с которого всё начиналось.\n"
+        f"Он не принимает ставки и не стреляет. Он просто помнит.\n\n"
+        f"⬇️ Нажми на кнопки ниже, чтобы узнать историю.",
+        reply_markup=main_menu()
     )
-    return builder.as_markup()
 
-def market_keyboard():
-    builder = InlineKeyboardBuilder()
-    builder.row(
-        InlineKeyboardButton(text="🍔 Buy Food", callback_data="buy_food"),
-        InlineKeyboardButton(text="🍔 Sell Food", callback_data="sell_food")
-    )
-    builder.row(
-        InlineKeyboardButton(text="⛏️ Buy Ore", callback_data="buy_ore"),
-        InlineKeyboardButton(text="⛏️ Sell Ore", callback_data="sell_ore")
-    )
-    builder.row(
-        InlineKeyboardButton(text="💻 Buy Tech", callback_data="buy_tech"),
-        InlineKeyboardButton(text="💻 Sell Tech", callback_data="sell_tech")
-    )
-    builder.row(InlineKeyboardButton(text="◀️ Back", callback_data="back"))
-    return builder.as_markup()
+@bot.callback_query_handler(func=lambda c: True)
+def handle_callback(call):
+    uid = call.from_user.id
+    cid = call.message.chat.id
+    mid = call.message.message_id
 
-def travel_keyboard():
-    builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text="🌍 Earth", callback_data="travel_earth"))
-    builder.row(InlineKeyboardButton(text="🪐 Mars", callback_data="travel_mars"))
-    builder.row(InlineKeyboardButton(text="🌌 Jupiter", callback_data="travel_jupiter"))
-    builder.row(InlineKeyboardButton(text="◀️ Back", callback_data="back"))
-    return builder.as_markup()
+    # Навигация по меню
+    if call.data == "menu_page_1":
+        bot.edit_message_text("🕯️ <b>TERMINAL TRADE</b> — ПЕРВЫЙ ПРОЕКТ\n\nВыбери раздел:", cid, mid, reply_markup=main_menu(page=1))
+        bot.answer_callback_query(call.id)
+        return
+    elif call.data == "menu_page_2":
+        bot.edit_message_text("🔗 <b>ПОЛЕЗНЫЕ ССЫЛКИ</b>\n\nНаши актуальные проекты:", cid, mid, reply_markup=main_menu(page=2))
+        bot.answer_callback_query(call.id)
+        return
+    elif call.data == "back_to_menu":
+        bot.edit_message_text("🕯️ <b>TERMINAL TRADE</b> — ПЕРВЫЙ ПРОЕКТ\n\nВыбери раздел:", cid, mid, reply_markup=main_menu())
+        bot.answer_callback_query(call.id)
+        return
 
-def back_keyboard():
-    builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text="◀️ Back", callback_data="back"))
-    return builder.as_markup()
+    # Основные разделы
+    if call.data == "history":
+        text = (
+            "📜 <b>ИСТОРИЯ TERMINAL TRADE</b>\n\n"
+            f"• Создан в {start_date} году\n"
+            f"• Закрыт в {end_date} году\n"
+            "• Первый проект Catalyst Studios\n"
+            "• Торговля внутри Telegram\n"
+            "• Собственная экономика и валюта\n\n"
+            "<i>Причина закрытия: багов было больше, чем кода.</i>"
+        )
+        bot.edit_message_text(text, cid, mid, reply_markup=InlineKeyboardMarkup().add(InlineKeyboardButton("🔙 Назад", callback_data="menu_page_1")))
+        bot.answer_callback_query(call.id)
+        return
 
-# ==================== КОМАНДА /start ====================
+    if call.data == "stats":
+        text = (
+            "📊 <b>СТАТИСТИКА TERMINAL TRADE</b>\n\n"
+            f"👥 Пользователей: {total_users}\n"
+            f"🎮 Сыграно игр: {total_games}\n"
+            f"🐛 Поймано багов: {total_bugs}\n"
+            f"💰 Всего ставок: потерян счёт\n\n"
+            "<i>Цифры примерные. Точные данные утеряны вместе с сервером.</i>"
+        )
+        bot.edit_message_text(text, cid, mid, reply_markup=InlineKeyboardMarkup().add(InlineKeyboardButton("🔙 Назад", callback_data="menu_page_1")))
+        bot.answer_callback_query(call.id)
+        return
 
-@dp.message(Command("start"))
-async def start_command(message: types.Message):
-    user_id = message.from_user.id
-    player = get_player(user_id)
-    
-    text = f"🪐 *Terminal Trader*\n\n"
-    text += f"📍 Location: *Earth*\n"
-    text += f"💰 Balance: *{player['credits']} Cr*\n\n"
-    text += f"🎯 Goal: earn 1,000,000 Cr"
-    
-    await message.answer(text, parse_mode="Markdown", reply_markup=main_menu_keyboard())
+    if call.data == "meme":
+        meme = random.choice(memes)
+        text = f"😢 <b>ВОСПОМИНАНИЕ</b>\n\n{meme}"
+        bot.edit_message_text(text, cid, mid, reply_markup=InlineKeyboardMarkup().add(InlineKeyboardButton("🔙 Назад", callback_data="menu_page_1")))
+        bot.answer_callback_query(call.id)
+        return
 
-# ==================== ОБРАБОТКА КНОПОК ====================
+    if call.data == "grave":
+        text = (
+            "🪦 <b>ЗДЕСЬ ПОКОИТСЯ</b>\n\n"
+            "TERMINAL TRADE\n"
+            f"{start_date} — {end_date}\n\n"
+            "Он не умер. Он переродился.\n\n"
+            "<i>Зажги лампадку 👇</i>"
+        )
+        kb = InlineKeyboardMarkup()
+        kb.add(InlineKeyboardButton("🕯️ Зажечь свечу", callback_data="light_candle"))
+        kb.add(InlineKeyboardButton("🔙 Назад", callback_data="menu_page_1"))
+        bot.edit_message_text(text, cid, mid, reply_markup=kb)
+        bot.answer_callback_query(call.id)
+        return
 
-@dp.callback_query(F.data == "back")
-async def back_callback(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    player = get_player(user_id)
-    
-    text = f"🪐 *Terminal Trader*\n\n"
-    text += f"📍 Location: *Earth*\n"
-    text += f"💰 Balance: *{player['credits']} Cr*\n\n"
-    text += f"🎯 Goal: earn 1,000,000 Cr"
-    
-    await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=main_menu_keyboard())
-    await callback.answer()
+    if call.data == "light_candle":
+        bot.answer_callback_query(call.id, "🕯️ Свеча зажжена. Terminal Trade помнят.", show_alert=True)
+        return
 
-@dp.callback_query(F.data == "market")
-async def market_callback(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    player = get_player(user_id)
-    
-    # Обновляем цены при входе на рынок
-    player["prices"] = {
-        "food": random.randint(10, 30),
-        "ore": random.randint(20, 50),
-        "tech": random.randint(60, 120)
-    }
-    
-    p = player["prices"]
-    inv = player["inventory"]
-    
-    text = f"📊 *Market*\n\n"
-    text += f"💰 Balance: {player['credits']} Cr\n\n"
-    text += f"🍔 Food: Buy {p['food']} Cr | Sell {int(p['food']*0.7)} Cr (you have: {inv['food']})\n"
-    text += f"⛏️ Ore: Buy {p['ore']} Cr | Sell {int(p['ore']*0.7)} Cr (you have: {inv['ore']})\n"
-    text += f"💻 Tech: Buy {p['tech']} Cr | Sell {int(p['tech']*0.7)} Cr (you have: {inv['tech']})"
-    
-    await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=market_keyboard())
-    await callback.answer()
+    if call.data == "rebirth":
+        text = (
+            "🔫 <b>ВОЗРОЖДЕНИЕ</b>\n\n"
+            "Terminal Trade не умер — он переродился в\n"
+            "@RussianRoulette_official_bot\n\n"
+            "Ставки те же, просто теперь пуля вместо графика.\n\n"
+            "<i>Риск остался. Адреналин — тоже.</i>"
+        )
+        kb = InlineKeyboardMarkup()
+        kb.add(InlineKeyboardButton("🔫 Перейти в русскую рулетку", url="https://t.me/RussianRoulette_official_bot"))
+        kb.add(InlineKeyboardButton("🔙 Назад", callback_data="menu_page_1"))
+        bot.edit_message_text(text, cid, mid, reply_markup=kb)
+        bot.answer_callback_query(call.id)
+        return
 
-@dp.callback_query(F.data == "inventory")
-async def inventory_callback(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    player = get_player(user_id)
-    inv = player["inventory"]
-    
-    text = f"📦 *Inventory*\n\n"
-    text += f"🍔 Food: {inv['food']}\n"
-    text += f"⛏️ Ore: {inv['ore']}\n"
-    text += f"💻 Tech: {inv['tech']}\n\n"
-    text += f"💰 Balance: {player['credits']} Cr"
-    
-    await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=back_keyboard())
-    await callback.answer()
+    # ========== АДМИН-ПАНЕЛЬ ==========
+    if call.data == "admin_panel":
+        if uid != ADMIN_ID:
+            bot.answer_callback_query(call.id, "❌ Нет доступа!", show_alert=True)
+            return
+        bot.edit_message_text("👑 <b>АДМИН ПАНЕЛЬ</b>\n\nВыбери действие:", cid, mid, reply_markup=admin_menu_kb())
+        bot.answer_callback_query(call.id)
+        return
 
-@dp.callback_query(F.data == "travel")
-async def travel_callback(callback: types.CallbackQuery):
-    text = "🚀 *Select destination:*"
-    await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=travel_keyboard())
-    await callback.answer()
+    if call.data == "admin_stats":
+        if uid != ADMIN_ID:
+            return
+        text = (
+            "📊 <b>СТАТИСТИКА БОТА</b>\n\n"
+            f"🕯️ Terminal Trade Memorial Bot\n"
+            f"📅 Создан: 13.04.2026\n"
+            f"👥 Пользователей: (сбор данных...)\n"
+            f"🎮 Команд обработано: (сбор данных...)"
+        )
+        bot.edit_message_text(text, cid, mid, reply_markup=InlineKeyboardMarkup().add(InlineKeyboardButton("🔙 Назад", callback_data="admin_panel")))
+        bot.answer_callback_query(call.id)
+        return
 
-@dp.callback_query(F.data.startswith("travel_"))
-async def travel_to_callback(callback: types.CallbackQuery):
-    planet = callback.data.replace("travel_", "").capitalize()
-    await callback.answer(f"Travelled to {planet}!")
-    await back_callback(callback)
+    if call.data == "admin_create_promo":
+        if uid != ADMIN_ID:
+            return
+        bot.send_message(uid, "Введите промокод и награду в формате:\nКОД ТИП КОЛИЧЕСТВО\nПример: TTLOVE gc 100")
+        bot.register_next_step_handler_by_chat_id(uid, lambda m: create_promo_handler(m, cid, mid))
+        bot.answer_callback_query(call.id)
+        return
 
-@dp.callback_query(F.data == "reset")
-async def reset_callback(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    players[user_id] = {
-        "credits": 1000,
-        "inventory": {"food": 0, "ore": 0, "tech": 0},
-        "prices": {}
-    }
-    await callback.answer("Game reset!")
-    await back_callback(callback)
+    if call.data == "admin_broadcast":
+        if uid != ADMIN_ID:
+            return
+        bot.send_message(uid, "Введите текст рассылки:")
+        bot.register_next_step_handler_by_chat_id(uid, lambda m: broadcast_handler(m, cid, mid))
+        bot.answer_callback_query(call.id)
+        return
 
-# ==================== ПОКУПКА ====================
+# ========== ОБРАБОТЧИКИ АДМИНА ==========
+def create_promo_handler(m, ocid, omid):
+    if m.from_user.id != ADMIN_ID:
+        return
+    try:
+        parts = m.text.split()
+        code = parts[0].upper()
+        reward_type = parts[1].lower()
+        amount = int(parts[2])
+        bot.send_message(m.chat.id, f"✅ Промокод {code} создан! (тип: {reward_type}, {amount})")
+        # Здесь можно сохранять в БД, если нужно
+    except:
+        bot.send_message(m.chat.id, "❌ Ошибка! Формат: КОД ТИП КОЛИЧЕСТВО")
+    bot.edit_message_reply_markup(ocid, omid, reply_markup=admin_menu_kb())
 
-@dp.callback_query(F.data == "buy_food")
-async def buy_food(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    player = get_player(user_id)
-    price = player["prices"]["food"]
-    
-    if player["credits"] >= price:
-        player["credits"] -= price
-        player["inventory"]["food"] += 1
-        await callback.answer(f"Bought 1 food for {price} Cr")
-    else:
-        await callback.answer("Not enough credits!", show_alert=True)
-    
-    await market_callback(callback)
+def broadcast_handler(m, ocid, omid):
+    if m.from_user.id != ADMIN_ID:
+        return
+    text = m.text
+    # Здесь нужна БД для рассылки, пока просто заглушка
+    bot.send_message(m.chat.id, f"📢 Рассылка отправлена (в разработке)\n\nТекст: {text[:100]}")
+    bot.edit_message_reply_markup(ocid, omid, reply_markup=admin_menu_kb())
 
-@dp.callback_query(F.data == "buy_ore")
-async def buy_ore(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    player = get_player(user_id)
-    price = player["prices"]["ore"]
-    
-    if player["credits"] >= price:
-        player["credits"] -= price
-        player["inventory"]["ore"] += 1
-        await callback.answer(f"Bought 1 ore for {price} Cr")
-    else:
-        await callback.answer("Not enough credits!", show_alert=True)
-    
-    await market_callback(callback)
-
-@dp.callback_query(F.data == "buy_tech")
-async def buy_tech(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    player = get_player(user_id)
-    price = player["prices"]["tech"]
-    
-    if player["credits"] >= price:
-        player["credits"] -= price
-        player["inventory"]["tech"] += 1
-        await callback.answer(f"Bought 1 tech for {price} Cr")
-    else:
-        await callback.answer("Not enough credits!", show_alert=True)
-    
-    await market_callback(callback)
-
-# ==================== ПРОДАЖА ====================
-
-@dp.callback_query(F.data == "sell_food")
-async def sell_food(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    player = get_player(user_id)
-    price = int(player["prices"]["food"] * 0.7)
-    
-    if player["inventory"]["food"] > 0:
-        player["credits"] += price
-        player["inventory"]["food"] -= 1
-        await callback.answer(f"Sold 1 food for {price} Cr")
-    else:
-        await callback.answer("No food to sell!", show_alert=True)
-    
-    await market_callback(callback)
-
-@dp.callback_query(F.data == "sell_ore")
-async def sell_ore(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    player = get_player(user_id)
-    price = int(player["prices"]["ore"] * 0.7)
-    
-    if player["inventory"]["ore"] > 0:
-        player["credits"] += price
-        player["inventory"]["ore"] -= 1
-        await callback.answer(f"Sold 1 ore for {price} Cr")
-    else:
-        await callback.answer("No ore to sell!", show_alert=True)
-    
-    await market_callback(callback)
-
-@dp.callback_query(F.data == "sell_tech")
-async def sell_tech(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    player = get_player(user_id)
-    price = int(player["prices"]["tech"] * 0.7)
-    
-    if player["inventory"]["tech"] > 0:
-        player["credits"] += price
-        player["inventory"]["tech"] -= 1
-        await callback.answer(f"Sold 1 tech for {price} Cr")
-    else:
-        await callback.answer("No tech to sell!", show_alert=True)
-    
-    await market_callback(callback)
-
-# ==================== ЗАПУСК ====================
-
-async def main():
-    print("Bot started!")
-    await dp.start_polling(bot)
-
+# ========== ЗАПУСК ==========
 if __name__ == "__main__":
-    asyncio.run(main())
+    print("✅ Terminal Trade Memorial Bot запущен!")
+    print(f"👑 Admin ID: {ADMIN_ID}")
+    bot.infinity_polling()
