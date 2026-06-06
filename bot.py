@@ -1,17 +1,14 @@
-import asyncio
 import sqlite3
 import logging
 import sys
-import requests
-from datetime import datetime
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler
 
 # ========== КОНФИГУРАЦИЯ ==========
 BOT_TOKEN = '8891687206:AAHUcgCDsiZr5YqQyx4kWPsMWfmw8IttikA'
-SOURCE_CHANNEL = '@TWSA_HOF'
 BOT_NAME = "Vexor Observer"
-API_URL = f"https://tg.i-c-a.su/json/{SOURCE_CHANNEL}"
+ADMIN_ID = 8388843828  # ТВОЙ TELEGRAM ID (цифра)
 # ==================================
 
 logging.basicConfig(
@@ -55,86 +52,28 @@ def get_all_subscribers():
 def get_subscriber_count():
     return len(get_all_subscribers())
 
-# ---------- ПОЛУЧЕНИЕ ПОСТОВ ----------
-last_post_id = None
-
-def get_latest_post():
-    global last_post_id
-    try:
-        response = requests.get(API_URL, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            messages = data.get('messages', [])
-            if messages:
-                latest = messages[0]
-                current_id = latest.get('id')
-                text = latest.get('text', 'Новый пост')
-                if isinstance(text, list):
-                    text = ' '.join(str(item) for item in text)
-                link = f"https://t.me/{SOURCE_CHANNEL[1:]}/{current_id}"
-                
-                if last_post_id is None:
-                    last_post_id = current_id
-                    return None
-                elif current_id != last_post_id:
-                    last_post_id = current_id
-                    return {'text': text[:500], 'link': link}
-        return None
-    except Exception as e:
-        logger.error(f"Ошибка: {e}")
-        return None
-
-def get_last_posts(limit=5):
-    try:
-        response = requests.get(API_URL, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            messages = data.get('messages', [])
-            result = []
-            for msg in messages[:limit]:
-                text = msg.get('text', '📷 Медиа')
-                if isinstance(text, list):
-                    text = ' '.join(str(item) for item in text)
-                date = datetime.fromtimestamp(msg.get('date', 0))
-                msg_id = msg.get('id')
-                link = f"https://t.me/{SOURCE_CHANNEL[1:]}/{msg_id}"
-                result.append(f"📌 {date.strftime('%d.%m %H:%M')}\n{text[:300]}\n{link}")
-            return result
-        return []
-    except Exception as e:
-        logger.error(f"Ошибка: {e}")
-        return []
-
 # ---------- КНОПКИ ----------
 def get_main_keyboard():
     keyboard = [
-        [
-            InlineKeyboardButton("✅ ПОДПИСАТЬСЯ", callback_data='subscribe'),
-            InlineKeyboardButton("❌ ОТПИСАТЬСЯ", callback_data='unsubscribe'),
-        ],
-        [
-            InlineKeyboardButton("📜 ПОСЛЕДНИЕ 5", callback_data='last_5'),
-            InlineKeyboardButton("📜 ПОСЛЕДНИЕ 10", callback_data='last_10'),
-        ],
-        [
-            InlineKeyboardButton("📊 СТАТИСТИКА", callback_data='stats'),
-        ],
+        [InlineKeyboardButton("✅ ПОДПИСАТЬСЯ", callback_data='subscribe')],
+        [InlineKeyboardButton("❌ ОТПИСАТЬСЯ", callback_data='unsubscribe')],
+        [InlineKeyboardButton("📊 СТАТИСТИКА", callback_data='stats')],
     ]
     return InlineKeyboardMarkup(keyboard)
 
-# ---------- ОБРАБОТЧИКИ ----------
-def start(update: Update, context: CallbackContext):
+# ---------- КОМАНДЫ ДЛЯ ВСЕХ ----------
+def start(update: Update, context):
     user = update.effective_user
     update.message.reply_text(
         f"👁 {BOT_NAME}\n\n"
         f"Привет, {user.first_name}!\n\n"
-        f"Я слежу за каналом Vexor cheats | News\n"
-        f"и присылаю новые посты.\n\n"
+        f"Подпишись, чтобы получать новые посты из канала Vexor cheats | News\n\n"
+        f"Новые посты будут приходить сюда автоматически, когда админ их отправит.\n\n"
         f"👇 ВЫБЕРИ ДЕЙСТВИЕ:",
         reply_markup=get_main_keyboard()
     )
 
-def button_handler(update: Update, context: CallbackContext):
+def button_handler(update: Update, context):
     query = update.callback_query
     query.answer()
     user_id = query.from_user.id
@@ -152,54 +91,98 @@ def button_handler(update: Update, context: CallbackContext):
     
     elif query.data == 'stats':
         query.edit_message_text(
-            f"📊 СТАТИСТИКА\n\n👀 Подписчиков: {get_subscriber_count()}\n📢 Канал: Vexor cheats | News",
+            f"📊 СТАТИСТИКА\n\n👀 Подписчиков: {get_subscriber_count()}",
             reply_markup=get_main_keyboard()
         )
-    
-    elif query.data in ['last_5', 'last_10']:
-        n = 5 if query.data == 'last_5' else 10
-        query.edit_message_text(f"⏳ Загружаю {n} постов...")
-        
-        posts = get_last_posts(n)
-        if posts:
-            text = "\n\n".join(posts)
-            query.edit_message_text(text, disable_web_page_preview=True)
-        else:
-            query.edit_message_text("❌ Ошибка загрузки", reply_markup=get_main_keyboard())
 
-# ---------- МОНИТОРИНГ ----------
-def monitor_channel(context: CallbackContext):
-    post = get_latest_post()
-    if post:
-        subscribers = get_all_subscribers()
-        for user_id in subscribers:
-            try:
-                context.bot.send_message(
-                    chat_id=user_id,
-                    text=f"🔔 НОВЫЙ ПОСТ!\n\n{post['text']}\n\n{post['link']}",
-                    disable_web_page_preview=True
-                )
-                asyncio.sleep(0.05)
-            except Exception as e:
-                if "Forbidden" in str(e):
-                    remove_subscriber(user_id)
-                logger.error(f"Ошибка {user_id}: {e}")
+# ---------- КОМАНДЫ ДЛЯ АДМИНА ----------
+def post(update: Update, context):
+    """Отправить пост всем подписчикам - /post текст поста"""
+    if update.effective_user.id != ADMIN_ID:
+        update.message.reply_text("⛔ Только для админа")
+        return
+    
+    text = ' '.join(context.args)
+    if not text:
+        update.message.reply_text("❌ Используй: /post текст поста")
+        return
+    
+    subscribers = get_all_subscribers()
+    if not subscribers:
+        update.message.reply_text("Нет подписчиков")
+        return
+    
+    update.message.reply_text(f"📤 Рассылаю {len(subscribers)} подписчикам...")
+    
+    success = 0
+    for user_id in subscribers:
+        try:
+            context.bot.send_message(
+                chat_id=user_id,
+                text=f"🔔 НОВЫЙ ПОСТ ИЗ КАНАЛА!\n\n{text}"
+            )
+            success += 1
+        except Exception as e:
+            if "Forbidden" in str(e):
+                remove_subscriber(user_id)
+            logger.error(f"Ошибка {user_id}: {e}")
+    
+    update.message.reply_text(f"✅ Готово! Отправлено: {success}/{len(subscribers)}")
+
+def broadcast(update: Update, context):
+    """Отправить любое сообщение всем - /broadcast текст"""
+    if update.effective_user.id != ADMIN_ID:
+        update.message.reply_text("⛔ Только для админа")
+        return
+    
+    text = ' '.join(context.args)
+    if not text:
+        update.message.reply_text("❌ Используй: /broadcast текст")
+        return
+    
+    subscribers = get_all_subscribers()
+    for user_id in subscribers:
+        try:
+            context.bot.send_message(chat_id=user_id, text=text)
+        except Exception as e:
+            logger.error(f"Ошибка {user_id}: {e}")
+    
+    update.message.reply_text("✅ Рассылка завершена")
+
+def subscribers_list(update: Update, context):
+    """Показать список подписчиков - /subscribers"""
+    if update.effective_user.id != ADMIN_ID:
+        update.message.reply_text("⛔ Только для админа")
+        return
+    
+    subscribers = get_all_subscribers()
+    text = f"👀 Подписчики ({len(subscribers)}):\n"
+    text += ', '.join(map(str, subscribers)) if subscribers else "нет"
+    update.message.reply_text(text)
 
 # ---------- ЗАПУСК ----------
 def main():
     init_db()
     
-    updater = Updater(BOT_TOKEN, use_context=True)
+    updater = Updater(BOT_TOKEN)
     dp = updater.dispatcher
     
+    # Команды для всех
     dp.add_handler(CommandHandler('start', start))
     dp.add_handler(CallbackQueryHandler(button_handler))
     
-    # Запускаем мониторинг
-    job_queue = updater.job_queue
-    job_queue.run_repeating(monitor_channel, interval=5, first=1)
+    # Команды для админа
+    dp.add_handler(CommandHandler('post', post))
+    dp.add_handler(CommandHandler('broadcast', broadcast))
+    dp.add_handler(CommandHandler('subscribers', subscribers_list))
     
-    logger.info("✅ Бот запущен!")
+    logger.info(f"✅ Бот запущен! Админ: {ADMIN_ID}")
+    logger.info("Доступные команды:")
+    logger.info("  /start - главное меню")
+    logger.info("  /post ТЕКСТ - отправить пост всем подписчикам")
+    logger.info("  /broadcast ТЕКСТ - отправить любое сообщение всем")
+    logger.info("  /subscribers - список подписчиков")
+    
     updater.start_polling()
     updater.idle()
 
