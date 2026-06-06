@@ -5,7 +5,7 @@ import sys
 import requests
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext
 
 # ========== КОНФИГУРАЦИЯ ==========
 BOT_TOKEN = '8891687206:AAHUcgCDsiZr5YqQyx4kWPsMWfmw8IttikA'
@@ -98,164 +98,114 @@ def get_last_posts(limit=5):
                 date = datetime.fromtimestamp(msg.get('date', 0))
                 msg_id = msg.get('id')
                 link = f"https://t.me/{SOURCE_CHANNEL[1:]}/{msg_id}"
-                result.append(f"📌 <b>{date.strftime('%d.%m %H:%M')}</b>\n{text[:300]}\n<a href='{link}'>🔗 Читать</a>")
+                result.append(f"📌 {date.strftime('%d.%m %H:%M')}\n{text[:300]}\n{link}")
             return result
         return []
     except Exception as e:
         logger.error(f"Ошибка: {e}")
         return []
 
-# ---------- ЦВЕТНЫЕ КНОПКИ ----------
+# ---------- КНОПКИ ----------
 def get_main_keyboard():
     keyboard = [
         [
-            InlineKeyboardButton("✅ ПОДПИСАТЬСЯ", callback_data='subscribe', style='success'),
-            InlineKeyboardButton("❌ ОТПИСАТЬСЯ", callback_data='unsubscribe', style='danger'),
+            InlineKeyboardButton("✅ ПОДПИСАТЬСЯ", callback_data='subscribe'),
+            InlineKeyboardButton("❌ ОТПИСАТЬСЯ", callback_data='unsubscribe'),
         ],
         [
-            InlineKeyboardButton("📜 ПОСЛЕДНИЕ 5", callback_data='last_5', style='primary'),
-            InlineKeyboardButton("📜 ПОСЛЕДНИЕ 10", callback_data='last_10', style='primary'),
+            InlineKeyboardButton("📜 ПОСЛЕДНИЕ 5", callback_data='last_5'),
+            InlineKeyboardButton("📜 ПОСЛЕДНИЕ 10", callback_data='last_10'),
         ],
         [
-            InlineKeyboardButton("📊 СТАТИСТИКА", callback_data='stats', style='primary'),
+            InlineKeyboardButton("📊 СТАТИСТИКА", callback_data='stats'),
         ],
     ]
     return InlineKeyboardMarkup(keyboard)
 
-# ---------- КОМАНДЫ БОТА ----------
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# ---------- ОБРАБОТЧИКИ ----------
+def start(update: Update, context: CallbackContext):
     user = update.effective_user
-    await update.message.reply_text(
-        f"<b>👁 {BOT_NAME}</b>\n\n"
+    update.message.reply_text(
+        f"👁 {BOT_NAME}\n\n"
         f"Привет, {user.first_name}!\n\n"
-        f"Я слежу за каналом <b>Vexor cheats | News</b>\n"
+        f"Я слежу за каналом Vexor cheats | News\n"
         f"и присылаю новые посты.\n\n"
-        f"👇 <b>ВЫБЕРИ ДЕЙСТВИЕ:</b>",
-        reply_markup=get_main_keyboard(),
-        parse_mode='HTML'
+        f"👇 ВЫБЕРИ ДЕЙСТВИЕ:",
+        reply_markup=get_main_keyboard()
     )
 
-async def subscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    add_subscriber(user_id)
-    await update.message.reply_text(
-        f"<b>✅ ПОДПИСАН!</b>\n\n👀 Подписчиков: {get_subscriber_count()}",
-        parse_mode='HTML'
-    )
-
-async def unsubscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    remove_subscriber(user_id)
-    await update.message.reply_text(
-        "<b>❌ ОТПИСАН</b>",
-        parse_mode='HTML'
-    )
-
-async def last_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    n = 5
-    if context.args and context.args[0].isdigit():
-        n = min(int(context.args[0]), 20)
-    
-    msg = await update.message.reply_text(f"⏳ Загружаю {n} постов...")
-    posts = get_last_posts(n)
-    if posts:
-        text = "\n\n".join(posts)
-        await msg.edit_text(text, parse_mode='HTML', disable_web_page_preview=True)
-    else:
-        await msg.edit_text("❌ Ошибка загрузки")
-
-async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        f"<b>📊 СТАТИСТИКА</b>\n\n👀 Подписчиков: {get_subscriber_count()}\n📢 Канал: Vexor cheats | News",
-        parse_mode='HTML'
-    )
-
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def button_handler(update: Update, context: CallbackContext):
     query = update.callback_query
-    await query.answer()
+    query.answer()
     user_id = query.from_user.id
     
     if query.data == 'subscribe':
         add_subscriber(user_id)
-        await query.edit_message_text(
-            f"<b>✅ ПОДПИСАН!</b>\n\n👀 Подписчиков: {get_subscriber_count()}",
-            reply_markup=get_main_keyboard(),
-            parse_mode='HTML'
+        query.edit_message_text(
+            f"✅ ПОДПИСАН!\n\n👀 Подписчиков: {get_subscriber_count()}",
+            reply_markup=get_main_keyboard()
         )
     
     elif query.data == 'unsubscribe':
         remove_subscriber(user_id)
-        await query.edit_message_text(
-            "<b>❌ ОТПИСАН</b>",
-            reply_markup=get_main_keyboard(),
-            parse_mode='HTML'
-        )
+        query.edit_message_text("❌ ОТПИСАН", reply_markup=get_main_keyboard())
     
     elif query.data == 'stats':
-        await query.edit_message_text(
-            f"<b>📊 СТАТИСТИКА</b>\n\n👀 Подписчиков: {get_subscriber_count()}\n📢 Канал: Vexor cheats | News",
-            reply_markup=get_main_keyboard(),
-            parse_mode='HTML'
+        query.edit_message_text(
+            f"📊 СТАТИСТИКА\n\n👀 Подписчиков: {get_subscriber_count()}\n📢 Канал: Vexor cheats | News",
+            reply_markup=get_main_keyboard()
         )
     
     elif query.data in ['last_5', 'last_10']:
         n = 5 if query.data == 'last_5' else 10
-        await query.edit_message_text(f"⏳ Загружаю {n} постов...")
+        query.edit_message_text(f"⏳ Загружаю {n} постов...")
         
         posts = get_last_posts(n)
         if posts:
             text = "\n\n".join(posts)
-            await query.edit_message_text(text, parse_mode='HTML', disable_web_page_preview=True)
+            query.edit_message_text(text, disable_web_page_preview=True)
         else:
-            await query.edit_message_text("❌ Ошибка загрузки", reply_markup=get_main_keyboard())
+            query.edit_message_text("❌ Ошибка загрузки", reply_markup=get_main_keyboard())
 
 # ---------- МОНИТОРИНГ ----------
-async def monitor_channel(context):
+def monitor_channel(context: CallbackContext):
     post = get_latest_post()
     if post:
         subscribers = get_all_subscribers()
         for user_id in subscribers:
             try:
-                await context.bot.send_message(
+                context.bot.send_message(
                     chat_id=user_id,
-                    text=f"<b>🔔 НОВЫЙ ПОСТ!</b>\n\n{post['text']}\n\n<a href='{post['link']}'>🔗 Открыть</a>",
-                    parse_mode='HTML',
+                    text=f"🔔 НОВЫЙ ПОСТ!\n\n{post['text']}\n\n{post['link']}",
                     disable_web_page_preview=True
                 )
-                await asyncio.sleep(0.05)
+                asyncio.sleep(0.05)
             except Exception as e:
                 if "Forbidden" in str(e):
                     remove_subscriber(user_id)
                 logger.error(f"Ошибка {user_id}: {e}")
 
 # ---------- ЗАПУСК ----------
-async def main():
+def main():
     init_db()
     
-    application = Application.builder().token(BOT_TOKEN).build()
+    updater = Updater(BOT_TOKEN, use_context=True)
+    dp = updater.dispatcher
     
-    # Команды
-    application.add_handler(CommandHandler('start', start))
-    application.add_handler(CommandHandler('subscribe', subscribe_command))
-    application.add_handler(CommandHandler('unsubscribe', unsubscribe_command))
-    application.add_handler(CommandHandler('last', last_command))
-    application.add_handler(CommandHandler('stats', stats_command))
-    application.add_handler(CallbackQueryHandler(button_handler))
+    dp.add_handler(CommandHandler('start', start))
+    dp.add_handler(CallbackQueryHandler(button_handler))
     
     # Запускаем мониторинг
-    async def monitor_wrapper():
-        while True:
-            await monitor_channel(application)
-            await asyncio.sleep(5)
+    job_queue = updater.job_queue
+    job_queue.run_repeating(monitor_channel, interval=5, first=1)
     
-    asyncio.create_task(monitor_wrapper())
-    
-    logger.info("✅ Бот запущен! Доступные команды: /start, /subscribe, /unsubscribe, /last N, /stats")
-    await application.run_polling()
+    logger.info("✅ Бот запущен!")
+    updater.start_polling()
+    updater.idle()
 
 if __name__ == '__main__':
     try:
-        asyncio.run(main())
+        main()
     except KeyboardInterrupt:
         logger.info("Бот остановлен")
     except Exception as e:
