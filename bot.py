@@ -25,7 +25,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 bot = telebot.TeleBot(BOT_TOKEN)
-last_post_id = None
+last_post_data = None
 bot_start_time = datetime.now()
 last_check_time = None
 api_status = "проверяется"
@@ -137,12 +137,11 @@ def delete_saved_post(post_id):
     conn.commit()
     conn.close()
 
-# ---------- получение постов из канала (исправленное) ----------
+# ---------- получение постов из канала с медиа ----------
 def extract_text_from_message(msg):
-    """правильно достаёт текст из сообщения"""
+    """достаёт текст из сообщения"""
     text = msg.get('text', '')
     
-    # если текст в виде списка (бывает при форматировании)
     if isinstance(text, list):
         parts = []
         for item in text:
@@ -152,14 +151,46 @@ def extract_text_from_message(msg):
                 parts.append(str(item))
         text = ' '.join(parts)
     
-    # если пусто или None
     if not text or text == '':
-        # проверяем есть ли медиа
-        if msg.get('media'):
-            return None  # это чисто медиа-пост
-        return '📷 пост с медиафайлом'
+        return None
     
     return text.strip()
+
+def get_media_from_message(msg):
+    """получает медиа из сообщения"""
+    media = msg.get('media', {})
+    if not media:
+        return None, None
+    
+    media_type = None
+    media_url = None
+    
+    # пробуем определить тип медиа
+    if 'photo' in media:
+        media_type = 'photo'
+        # получаем ссылку на фото
+        photo = media.get('photo', {})
+        if isinstance(photo, dict):
+            media_url = photo.get('url', '')
+        elif isinstance(photo, list) and len(photo) > 0:
+            media_url = photo[0].get('url', '') if isinstance(photo[0], dict) else ''
+    elif 'video' in media:
+        media_type = 'video'
+        video = media.get('video', {})
+        if isinstance(video, dict):
+            media_url = video.get('url', '')
+    elif 'document' in media:
+        media_type = 'document'
+        doc = media.get('document', {})
+        if isinstance(doc, dict):
+            media_url = doc.get('url', '')
+    elif 'gif' in media:
+        media_type = 'animation'
+        gif = media.get('gif', {})
+        if isinstance(gif, dict):
+            media_url = gif.get('url', '')
+    
+    return media_type, media_url
 
 def get_channel_posts(limit=10):
     global api_status
@@ -170,21 +201,28 @@ def get_channel_posts(limit=10):
             data = response.json()
             messages = data.get('messages', [])
             posts = []
+            
             for msg in messages[:limit]:
                 text = extract_text_from_message(msg)
                 
-                # если текста нет, пропускаем чисто медийные посты
-                if text is None:
+                # проверяем медиа
+                media_type, media_url = get_media_from_message(msg)
+                
+                # пропускаем только если нет ни текста ни медиа
+                if text is None and media_type is None:
                     continue
-                    
+                
                 date = datetime.fromtimestamp(msg.get('date', 0))
                 msg_id = msg.get('id')
                 link = f"https://t.me/{SOURCE_CHANNEL[1:]}/{msg_id}"
+                
                 posts.append({
                     'id': msg_id,
                     'text': text,
+                    'link': link,
                     'date': date,
-                    'link': link
+                    'media_type': media_type,
+                    'media_url': media_url
                 })
             return posts
         else:
@@ -225,16 +263,16 @@ def get_channel_info():
         return None
 
 def check_new_post():
-    global last_post_id, last_check_time
+    global last_post_data, last_check_time
     last_check_time = datetime.now()
     posts = get_channel_posts(limit=1)
     if posts:
         latest = posts[0]
-        if last_post_id is None:
-            last_post_id = latest['id']
+        if last_post_data is None:
+            last_post_data = latest
             return None
-        elif latest['id'] != last_post_id:
-            last_post_id = latest['id']
+        elif latest['id'] != last_post_data['id']:
+            last_post_data = latest
             return latest
     return None
 
@@ -242,7 +280,6 @@ def check_new_post():
 def get_main_keyboard():
     keyboard = types.InlineKeyboardMarkup(row_width=2)
     
-    # кнопки с цветами как в твоём примере
     btn_subscribe = types.InlineKeyboardButton("✅ Подписаться", callback_data='subscribe')
     btn_unsubscribe = types.InlineKeyboardButton("❌ Отписаться", callback_data='unsubscribe')
     btn_last5 = types.InlineKeyboardButton("📜 Последние 5", callback_data='last_5')
@@ -263,13 +300,11 @@ def get_main_keyboard():
 def get_post_keyboard(post_link, post_text, post_id, post_date):
     keyboard = types.InlineKeyboardMarkup(row_width=2)
     
-    btn_open = types.InlineKeyboardButton("📖 Открыть пост", url=post_link)
     btn_save = types.InlineKeyboardButton("💾 Сохранить", callback_data=f'save_{post_id}')
-    btn_share = types.InlineKeyboardButton("📤 Поделиться", switch_inline_query=f"{post_text[:50]}...")
+    btn_share = types.InlineKeyboardButton("📤 Поделиться", switch_inline_query=f"{post_text[:50] if post_text else 'пост'}...")
     btn_unsub = types.InlineKeyboardButton("❌ Отписаться", callback_data='unsubscribe')
     btn_back = types.InlineKeyboardButton("◀️ Назад", callback_data='back_to_main')
     
-    keyboard.add(btn_open)
     keyboard.add(btn_save, btn_share)
     keyboard.add(btn_unsub)
     keyboard.add(btn_back)
@@ -299,6 +334,141 @@ def get_saved_posts_keyboard(posts):
     keyboard.add(btn_back)
     return keyboard
 
+# ---------- отправка поста подписчику (с медиа если есть) ----------
+def send_post_to_user(user_id, post):
+    """отправляет пост пользователю с медиа если есть"""
+    try:
+        keyboard = get_post_keyboard(post['link'], post['text'], post['id'], post['date'].strftime('%Y-%m-%d'))
+        
+        caption = f"<b>🔔 Новый пост в канале!</b>\n\n"
+        if post['text']:
+            caption += post['text'][:500]
+        else:
+            caption += "📷 Новый пост"
+        
+        # если есть медиа
+        if post['media_type'] and post['media_url']:
+            media_url = post['media_url']
+            
+            # пробуем скачать и отправить медиа
+            try:
+                media_response = requests.get(media_url, timeout=15)
+                if media_response.status_code == 200:
+                    file_data = io.BytesIO(media_response.content)
+                    file_data.name = f"post_media_{post['id']}.jpg"
+                    
+                    if post['media_type'] == 'photo':
+                        bot.send_photo(
+                            user_id,
+                            photo=file_data,
+                            caption=caption,
+                            reply_markup=keyboard,
+                            parse_mode='HTML'
+                        )
+                    elif post['media_type'] == 'video':
+                        bot.send_video(
+                            user_id,
+                            video=file_data,
+                            caption=caption,
+                            reply_markup=keyboard,
+                            parse_mode='HTML'
+                        )
+                    else:
+                        bot.send_document(
+                            user_id,
+                            document=file_data,
+                            caption=caption,
+                            reply_markup=keyboard,
+                            parse_mode='HTML'
+                        )
+                    return
+            except Exception as media_err:
+                logger.error(f"ошибка отправки медиа: {media_err}")
+                # если не получилось отправить медиа, шлём только текст
+        
+        # если медиа нет или не получилось отправить
+        bot.send_message(
+            user_id,
+            caption,
+            reply_markup=keyboard,
+            parse_mode='HTML',
+            disable_web_page_preview=True
+        )
+        
+    except Exception as e:
+        logger.error(f"ошибка отправки пользователю {user_id}: {e}")
+        raise e
+
+def send_first_post_to_user(user_id, post):
+    """отправляет первый пост после подписки"""
+    try:
+        keyboard = get_post_keyboard(post['link'], post['text'], post['id'], post['date'].strftime('%Y-%m-%d'))
+        
+        caption = f"<b>🎉 Добро пожаловать!</b>\n\nЭто последний пост в канале:\n\n"
+        if post['text']:
+            caption += post['text'][:400]
+        else:
+            caption += "📷 Пост с медиафайлом"
+        caption += "\n\n<i>Следующие посты будут приходить автоматически</i>"
+        
+        if post['media_type'] and post['media_url']:
+            try:
+                media_response = requests.get(post['media_url'], timeout=15)
+                if media_response.status_code == 200:
+                    file_data = io.BytesIO(media_response.content)
+                    file_data.name = f"post_media_{post['id']}.jpg"
+                    
+                    if post['media_type'] == 'photo':
+                        bot.send_photo(
+                            user_id,
+                            photo=file_data,
+                            caption=caption,
+                            reply_markup=keyboard,
+                            parse_mode='HTML'
+                        )
+                        return
+                    elif post['media_type'] == 'video':
+                        bot.send_video(
+                            user_id,
+                            video=file_data,
+                            caption=caption,
+                            reply_markup=keyboard,
+                            parse_mode='HTML'
+                        )
+                        return
+            except:
+                pass
+        
+        bot.send_message(
+            user_id,
+            caption,
+            reply_markup=keyboard,
+            parse_mode='HTML',
+            disable_web_page_preview=True
+        )
+    except Exception as e:
+        logger.error(f"ошибка отправки первого поста {user_id}: {e}")
+
+# ---------- рассылка новым постом всем подписчикам ----------
+def broadcast_to_subscribers(post):
+    subscribers = get_all_subscribers()
+    if not subscribers:
+        return
+    
+    success = 0
+    for user_id in subscribers:
+        try:
+            send_post_to_user(user_id, post)
+            update_post_received(user_id)
+            success += 1
+            time.sleep(0.1)  # чуть больше пауза для медиа
+        except Exception as e:
+            if "Forbidden" in str(e):
+                remove_subscriber(user_id)
+            logger.error(f"ошибка {user_id}: {e}")
+    
+    logger.info(f"рассылка: {success}/{len(subscribers)}")
+
 # ---------- команда /start ----------
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -314,7 +484,6 @@ def start(message):
         parse_mode='HTML'
     )
 
-# ---------- команды подписки ----------
 @bot.message_handler(commands=['subscribe'])
 def subscribe_command(message):
     user_id = message.from_user.id
@@ -325,15 +494,7 @@ def subscribe_command(message):
     if not was_first_post_sent(user_id):
         posts = get_channel_posts(limit=1)
         if posts:
-            post = posts[0]
-            keyboard = get_post_keyboard(post['link'], post['text'], post['id'], post['date'].strftime('%Y-%m-%d'))
-            bot.send_message(
-                user_id,
-                f"<b>🎉 Добро пожаловать!</b>\n\nЭто последний пост в канале:\n\n{post['text'][:400]}\n\n<i>Следующие посты будут приходить автоматически</i>",
-                reply_markup=keyboard,
-                parse_mode='HTML',
-                disable_web_page_preview=True
-            )
+            send_first_post_to_user(user_id, posts[0])
             mark_first_post_sent(user_id)
 
 @bot.message_handler(commands=['unsubscribe'])
@@ -347,7 +508,6 @@ def unsubscribe_command(message):
 def callback_handler(call):
     user_id = call.from_user.id
     
-    # --- подписка ---
     if call.data == 'subscribe':
         username = call.from_user.username or "без_username"
         add_subscriber(user_id, username)
@@ -364,18 +524,9 @@ def callback_handler(call):
         if not was_first_post_sent(user_id):
             posts = get_channel_posts(limit=1)
             if posts:
-                post = posts[0]
-                keyboard = get_post_keyboard(post['link'], post['text'], post['id'], post['date'].strftime('%Y-%m-%d'))
-                bot.send_message(
-                    user_id,
-                    f"<b>🎉 Добро пожаловать!</b>\n\nЭто последний пост в канале:\n\n{post['text'][:400]}\n\n<i>Следующие посты будут приходить автоматически</i>",
-                    reply_markup=keyboard,
-                    parse_mode='HTML',
-                    disable_web_page_preview=True
-                )
+                send_first_post_to_user(user_id, posts[0])
                 mark_first_post_sent(user_id)
     
-    # --- отписка ---
     elif call.data == 'unsubscribe':
         remove_subscriber(user_id)
         bot.answer_callback_query(call.id, "Отписал!")
@@ -387,7 +538,6 @@ def callback_handler(call):
             parse_mode='HTML'
         )
     
-    # --- статистика пользователя ---
     elif call.data == 'stats':
         received, opened = get_user_stats(user_id)
         total = get_subscriber_count()
@@ -407,7 +557,6 @@ def callback_handler(call):
             parse_mode='HTML'
         )
     
-    # --- статус бота ---
     elif call.data == 'status':
         uptime = datetime.now() - bot_start_time
         days = uptime.days
@@ -430,7 +579,6 @@ def callback_handler(call):
             parse_mode='HTML'
         )
     
-    # --- информация о канале (полная) ---
     elif call.data == 'channel_info':
         bot.edit_message_text(
             "<i>📊 Загружаю информацию о канале...</i>",
@@ -464,14 +612,13 @@ def callback_handler(call):
             )
         else:
             bot.edit_message_text(
-                "<b>❌ Не удалось получить информацию о канале</b>\n\nВозможно канал недоступен или api временно не работает",
+                "<b>❌ Не удалось получить информацию о канале</b>",
                 call.message.chat.id,
                 call.message.message_id,
                 reply_markup=get_main_keyboard(),
                 parse_mode='HTML'
             )
     
-    # --- сохранённые посты ---
     elif call.data == 'saved_posts':
         saved = get_saved_posts(user_id)
         if not saved:
@@ -483,25 +630,14 @@ def callback_handler(call):
                 parse_mode='HTML'
             )
         else:
-            text = f"<b>💾 Твои сохранённые посты ({len(saved)})</b>\n\n"
-            for i, (pid, post_text, post_link, post_date, saved_date) in enumerate(saved[:5], 1):
-                text += f"<b>{i}.</b> {post_text[:80]}...\n"
-                text += f"📅 {saved_date}\n"
-                text += f"🔗 {post_link}\n\n"
-            
-            if len(saved) > 5:
-                text += f"<i>и ещё {len(saved)-5} постов. Нажми на пост чтобы открыть</i>"
-            
             bot.edit_message_text(
-                text,
+                f"<b>💾 Твои сохранённые посты ({len(saved)})</b>\n\nВыбери пост:",
                 call.message.chat.id,
                 call.message.message_id,
                 reply_markup=get_saved_posts_keyboard(saved),
-                parse_mode='HTML',
-                disable_web_page_preview=True
+                parse_mode='HTML'
             )
     
-    # --- просмотр сохранённого поста ---
     elif call.data.startswith('view_saved_'):
         post_id = int(call.data.split('_')[2])
         saved = get_saved_posts(user_id)
@@ -525,11 +661,10 @@ def callback_handler(call):
                 )
                 break
     
-    # --- удаление сохранённого ---
     elif call.data.startswith('delete_saved_'):
         post_id = int(call.data.split('_')[2])
         delete_saved_post(post_id)
-        bot.answer_callback_query(call.id, "Пост удалён из сохранённых")
+        bot.answer_callback_query(call.id, "Пост удалён")
         
         saved = get_saved_posts(user_id)
         if saved:
@@ -549,15 +684,15 @@ def callback_handler(call):
                 parse_mode='HTML'
             )
     
-    # --- сохранение поста из уведомления ---
     elif call.data.startswith('save_'):
         post_id = call.data.split('_')[1]
-        # получаем пост из глобального контекста (нужно сохранять последний пост)
-        bot.answer_callback_query(call.id, "💾 Пост сохранён в избранное!")
-        # здесь нужно сохранить пост, но для этого нужен доступ к данным поста
-        # в реальном коде нужно передавать данные поста в callback
+        # сохраняем текущий пост
+        if last_post_data and str(last_post_data['id']) == post_id:
+            save_post(user_id, last_post_data['text'] or "пост без текста", last_post_data['link'], last_post_data['date'].strftime('%Y-%m-%d'))
+            bot.answer_callback_query(call.id, "💾 Пост сохранён!")
+        else:
+            bot.answer_callback_query(call.id, "❌ Не удалось сохранить")
     
-    # --- последние 5 постов ---
     elif call.data == 'last_5':
         bot.edit_message_text(
             "<i>⏳ Загружаю последние 5 постов...</i>",
@@ -570,7 +705,10 @@ def callback_handler(call):
             text = "<b>📜 Последние 5 постов</b>\n\n"
             for i, post in enumerate(posts, 1):
                 text += f"<b>{i}.</b> <i>{post['date'].strftime('%d.%m.%Y %H:%M')}</i>\n"
-                text += f"{post['text'][:200]}\n"
+                if post['text']:
+                    text += f"{post['text'][:200]}\n"
+                else:
+                    text += "📷 Пост с медиа\n"
                 text += f"<a href='{post['link']}'>🔗 Открыть</a>\n\n"
             bot.edit_message_text(
                 text,
@@ -589,7 +727,6 @@ def callback_handler(call):
                 parse_mode='HTML'
             )
     
-    # --- последние 10 постов ---
     elif call.data == 'last_10':
         bot.edit_message_text(
             "<i>⏳ Загружаю последние 10 постов...</i>",
@@ -602,7 +739,10 @@ def callback_handler(call):
             text = "<b>📜 Последние 10 постов</b>\n\n"
             for i, post in enumerate(posts, 1):
                 text += f"<b>{i}.</b> <i>{post['date'].strftime('%d.%m.%Y %H:%M')}</i>\n"
-                text += f"{post['text'][:150]}\n"
+                if post['text']:
+                    text += f"{post['text'][:150]}\n"
+                else:
+                    text += "📷 Пост с медиа\n"
                 text += f"<a href='{post['link']}'>🔗 Открыть</a>\n\n"
             bot.edit_message_text(
                 text,
@@ -621,7 +761,6 @@ def callback_handler(call):
                 parse_mode='HTML'
             )
     
-    # --- назад в главное меню ---
     elif call.data == 'back_to_main':
         bot.edit_message_text(
             f"<b>👁 {BOT_NAME}</b>\n\n👇 <b>Выбери действие:</b>",
@@ -631,7 +770,6 @@ def callback_handler(call):
             parse_mode='HTML'
         )
     
-    # --- админ панель ---
     elif call.data == 'admin_panel':
         if user_id != ADMIN_ID:
             bot.answer_callback_query(call.id, "⛔ Доступ только для админа!")
@@ -644,24 +782,25 @@ def callback_handler(call):
             parse_mode='HTML'
         )
     
-    # --- админ: список подписчиков ---
     elif call.data == 'admin_subs':
         if user_id != ADMIN_ID:
             return
         subs = get_all_subscribers()
         if subs:
-            text = f"<b>👥 Список подписчиков ({len(subs)})</b>\n\n"
-            for i, sub in enumerate(subs[:30], 1):
-                text += f"{i}. <code>{sub}</code>\n"
-            if len(subs) > 30:
-                text += f"\n<i>и ещё {len(subs)-30}...</i>"
-            
-            # отправляем файлом если много
             if len(subs) > 50:
                 file = io.BytesIO('\n'.join(map(str, subs)).encode())
                 file.name = "subscribers.txt"
-                bot.send_document(call.message.chat.id, file, caption="📄 Полный список подписчиков")
+                bot.send_document(call.message.chat.id, file, caption=f"📄 {len(subs)} подписчиков")
+                bot.edit_message_text(
+                    "📄 Список отправлен файлом",
+                    call.message.chat.id,
+                    call.message.message_id,
+                    reply_markup=get_admin_keyboard()
+                )
             else:
+                text = f"<b>👥 Список подписчиков ({len(subs)})</b>\n\n"
+                for i, sub in enumerate(subs, 1):
+                    text += f"{i}. <code>{sub}</code>\n"
                 bot.edit_message_text(
                     text,
                     call.message.chat.id,
@@ -677,7 +816,6 @@ def callback_handler(call):
                 reply_markup=get_admin_keyboard()
             )
     
-    # --- админ: полная статистика ---
     elif call.data == 'admin_stats':
         if user_id != ADMIN_ID:
             return
@@ -701,7 +839,6 @@ def callback_handler(call):
             parse_mode='HTML'
         )
     
-    # --- админ: проверить новые ---
     elif call.data == 'admin_check':
         if user_id != ADMIN_ID:
             return
@@ -714,7 +851,7 @@ def callback_handler(call):
         post = check_new_post()
         if post:
             bot.edit_message_text(
-                f"✅ <b>Найден новый пост!</b>\n{post['link']}",
+                f"✅ <b>Найден новый пост!</b>\n\nТекст: {post['text'][:100] if post['text'] else 'без текста'}",
                 call.message.chat.id,
                 call.message.message_id,
                 reply_markup=get_admin_keyboard(),
@@ -729,45 +866,21 @@ def callback_handler(call):
                 parse_mode='HTML'
             )
 
-# ---------- рассылка новых постов подписчикам ----------
-def send_to_subscribers(post_text, post_link, post_id, post_date):
-    subscribers = get_all_subscribers()
-    if not subscribers:
-        return
-    
-    keyboard = get_post_keyboard(post_link, post_text, post_id, post_date)
-    
-    for user_id in subscribers:
-        try:
-            bot.send_message(
-                chat_id=user_id,
-                text=f"<b>🔔 Новый пост в канале!</b>\n\n{post_text[:500]}",
-                reply_markup=keyboard,
-                parse_mode='HTML',
-                disable_web_page_preview=True
-            )
-            update_post_received(user_id)
-            time.sleep(0.05)
-        except Exception as e:
-            if "Forbidden" in str(e):
-                remove_subscriber(user_id)
-            logger.error(f"ошибка {user_id}: {e}")
-
 # ---------- мониторинг ----------
 def monitor_loop():
-    global last_post_id
+    global last_post_data
     posts = get_channel_posts(limit=1)
     if posts:
-        last_post_id = posts[0]['id']
-        logger.info(f"мониторинг запущен, последний id: {last_post_id}")
+        last_post_data = posts[0]
+        logger.info(f"мониторинг запущен, последний id: {last_post_data['id']}")
     
     while True:
         try:
             post = check_new_post()
             if post:
-                logger.info(f"новый пост! {post['link']}")
-                send_to_subscribers(post['text'], post['link'], post['id'], post['date'].strftime('%Y-%m-%d'))
-                bot.send_message(ADMIN_ID, f"🔔 Новый пост отправлен подписчикам!\n{post['link']}")
+                logger.info(f"новый пост! id: {post['id']}")
+                broadcast_to_subscribers(post)
+                bot.send_message(ADMIN_ID, f"🔔 Новый пост отправлен подписчикам!\n\n{post['text'][:200] if post['text'] else 'пост с медиа'}")
             time.sleep(5)
         except Exception as e:
             logger.error(f"ошибка мониторинга: {e}")
